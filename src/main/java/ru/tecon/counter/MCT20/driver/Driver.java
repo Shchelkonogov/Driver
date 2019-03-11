@@ -49,13 +49,15 @@ public class Driver implements Counter {
         String filePath = URL + "/" + counterNumber.substring(0, 2) + "/" + counterNumber;
 
         LocalDateTime date = params.get(0).getStartTime();
-        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS).minusHours(3);
 
         Class<?> cl = this.getClass();
         Map<String, String> methodsMap = this.getMethodsMap();
 
         while (date.isBefore(now)) {
             String fileName = filePath + "/ans-" + date.format(DATE_FORMAT);
+
+            LOG.info("Driver.loadData check file: " + fileName + " " + System.currentTimeMillis());
 
             if (Files.exists(Paths.get(fileName))) {
                 readFile(fileName);
@@ -130,7 +132,7 @@ public class Driver implements Counter {
                     bufferSize = inputStream.available();
                 }
                 int sizeAvailable = inputStream.read(buffer, 0, bufferSize);
-                LOG.info("Driver.readFile Блок данных размером: " + sizeAvailable);
+//                LOG.info("Driver.readFile Блок данных размером: " + sizeAvailable);
 
 //                System.out.println("----------------АРХИВНАЯ ЗАПИСЬ----------------");
                 if((buffer[0] & 0xff) != 3) {
@@ -237,6 +239,13 @@ public class Driver implements Counter {
         }
     }
 
+    /**
+     * Перевод данных из бинарного типа в float
+     * @param buffer буфер с данными
+     * @param index индекс
+     * @param addIndex инкремент индекса
+     * @return результат
+     */
     private float readFloat(byte[] buffer, int index, int addIndex) {
         return Float.intBitsToFloat(
                 ((buffer[index + addIndex + 3] & 0xff) << 24) |
@@ -245,6 +254,13 @@ public class Driver implements Counter {
                 (buffer[index + addIndex] & 0xff));
     }
 
+    /**
+     * Перевод данных из бинарного типа в int
+     * @param inputStream поток данных
+     * @param bytesCount количество битов с данными
+     * @return результат
+     * @throws IOException ошибка
+     */
     private int readInt(BufferedInputStream inputStream, int bytesCount) throws IOException {
         byte[] buffer = new byte[bytesCount];
         if (inputStream.read(buffer, 0, bytesCount) != -1) {
@@ -260,6 +276,10 @@ public class Driver implements Counter {
         throw new NullPointerException();
     }
 
+    /**
+     * Получение списка методов и их аннотаций в соответствии с конфигурацией
+     * @return методы
+     */
     private Map<String, String> getMethodsMap() {
         Map<String, String> result = new HashMap<>();
         Method[] method = Driver.class.getMethods();
