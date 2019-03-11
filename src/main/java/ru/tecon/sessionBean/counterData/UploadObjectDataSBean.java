@@ -1,4 +1,4 @@
-package ru.tecon.sessionBean;
+package ru.tecon.sessionBean.counterData;
 
 import oracle.jdbc.OracleConnection;
 import ru.tecon.counter.model.DataModel;
@@ -15,27 +15,38 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Future;
+import java.util.logging.Logger;
 
+/**
+ * Stateless bean с асинхронным методом загрузки данных по объекту в базу
+ */
 @Stateless
-public class Test {
+public class UploadObjectDataSBean {
+
+    private static final Logger LOG = Logger.getLogger(UploadObjectDataSBean.class.getName());
 
     @Resource(mappedName = "jdbc/OracleDataSourceFil2")
     private DataSource dsFil2;
 
     private static final String SQL_INSERT_DATA = "{call dz_util1.input_data(?)}";
 
+    /**
+     * Асинхронный метод выгружает данные в базу по объекту
+     * @param paramList данные для выгрузки в базу
+     * @return null
+     */
     @Asynchronous
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public Future<Void> putData(List<DataModel> paramList) {
         try (OracleConnection connect = dsFil2.getConnection().unwrap(oracle.jdbc.OracleConnection.class);
                 PreparedStatement stmAlter = connect.prepareStatement("alter session set nls_numeric_characters = '.,'");
-             CallableStatement stm = connect.prepareCall(SQL_INSERT_DATA)) {
+                CallableStatement stm = connect.prepareCall(SQL_INSERT_DATA)) {
             stmAlter.execute();
 
             List<Object> dataList = new ArrayList<>();
             for (DataModel item: paramList) {
                 for (ValueModel value: item.getData()) {
-                    Date date = new java.sql.Date(value.getTime()
+                    Date date = new java.sql.Date(value.getTime().plusHours(1)
                             .atZone(ZoneId.systemDefault())
                             .toInstant().toEpochMilli());
 
@@ -45,14 +56,16 @@ public class Test {
                 }
             }
 
-            System.out.println(dataList.size());
+            if (dataList.size() > 0) {
+                LOG.info("UploadObjectDataSBean.putData put: " + dataList.size() + " values " + System.currentTimeMillis());
 
-            Array array = connect.createARRAY("T_DZ_UTIL_INPUT_DATA", dataList.toArray());
+                Array array = connect.createARRAY("T_DZ_UTIL_INPUT_DATA", dataList.toArray());
 
-            stm.setArray(1, array);
-            stm.execute();
+                stm.setArray(1, array);
+                stm.execute();
 
-            System.out.println("ok" + dataList.size() + " " + System.currentTimeMillis());
+                LOG.info("UploadObjectDataSBean.putData done put: " + dataList.size() + " values " + System.currentTimeMillis());
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
