@@ -12,6 +12,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Сервлет для выгрузки всех номеров счетчиков МСТ-20 с ftp
+ */
 @WebServlet(urlPatterns = "/scan")
 public class ScanAddressSpace extends HttpServlet {
 

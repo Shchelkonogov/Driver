@@ -17,6 +17,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Stateless bean для загрузки информации о счетчиках в базу
+ */
 @Stateless
 public class LoadOPCSBean {
 
@@ -27,6 +30,10 @@ public class LoadOPCSBean {
     @Resource(mappedName = "jdbc/OracleDataSource")
     private DataSource ds;
 
+    /**
+     * Загрузка всех номеров счетчиков в базу
+     * @param objects список счетчиков
+     */
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public void insertOPCObjects(List<String> objects) {
         try (Connection connect = ds.getConnection();
@@ -47,12 +54,23 @@ public class LoadOPCSBean {
         }
     }
 
+    /**
+     * Обход ftp
+     * @param folder путь к ftp
+     * @return список счетчиков
+     */
     public List<String> scanFolder(String folder) {
         List<String> result = new ArrayList<>();
         search(result, folder, "\\d\\d");
         return result;
     }
 
+    /**
+     * Обход всех папок на ftp
+     * @param result список счетчиков
+     * @param folder путь для поиска
+     * @param regex паттерн поиска имен
+     */
     private void search(List<String> result, String folder, String regex) {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(folder),
                 entry -> entry.getFileName().toString().matches(regex))) {

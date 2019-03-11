@@ -14,6 +14,9 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Singleton bean Таймер, который выгружает конфу счетчиков по запросу
+ */
 @Startup
 @Singleton
 public class LoadOPCConfigSBean {
@@ -30,6 +33,10 @@ public class LoadOPCConfigSBean {
     @Resource(mappedName = "jdbc/OracleDataSource")
     private DataSource ds;
 
+    /**
+     * Таймер, который кладет данные по конфигурации счетчиков,
+     * если пришел запрос в базу на перечет конфигурации
+     */
     @Schedule(second = "*/30", minute="*", hour="*", persistent = false)
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     private void timer() {
