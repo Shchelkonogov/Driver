@@ -54,7 +54,7 @@ public class LoadObjectDataSBean {
      */
     @Asynchronous
     public Future<Void> loadObjectParams(String objectId, String objectName) {
-        LocalDateTime startDate = LocalDateTime.now().minusDays(40).truncatedTo(ChronoUnit.HOURS);
+        LocalDateTime startDate;
 
         List<DataModel> paramList = new ArrayList<>();
 
@@ -70,6 +70,8 @@ public class LoadObjectDataSBean {
                 stmGetStartDate.setInt(1, resLinked.getInt(2));
                 stmGetStartDate.setInt(2, resLinked.getInt(3));
                 stmGetStartDate.setInt(3, resLinked.getInt(4));
+
+                startDate = LocalDateTime.now().minusDays(40).truncatedTo(ChronoUnit.HOURS);
 
                 resStartDate = stmGetStartDate.executeQuery();
                 while (resStartDate.next()) {
