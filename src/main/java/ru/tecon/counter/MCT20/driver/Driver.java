@@ -6,6 +6,10 @@ import ru.tecon.counter.MCT20.MCT20CounterParameter;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
 
+import javax.annotation.Resource;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -22,8 +26,11 @@ public class Driver implements Counter {
 
     private static final Logger LOG = Logger.getLogger(Driver.class.getName());
 
-    private static final String URL = "//172.16.4.47/c$/inetpub/ftproot";
+    private String url;
+
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HH");
+
+    private long accumulatedTime;
 
     private long totalTime;
     private float[] waterVolume = new float[8];
@@ -41,12 +48,21 @@ public class Driver implements Counter {
     private float heatAmountAccumulatedCO;
     private float heatAmountAccumulatedVENT;
 
+    public Driver() {
+        try {
+            Context ctx = new InitialContext();
+            url = (String) ctx.lookup("java:comp/env/url");
+        } catch (NamingException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void loadData(List<DataModel> params, String objectName) {
         Collections.sort(params);
 
         String counterNumber = objectName.substring(objectName.length() - 4);
-        String filePath = URL + "/" + counterNumber.substring(0, 2) + "/" + counterNumber;
+        String filePath = url + "/" + counterNumber.substring(0, 2) + "/" + counterNumber;
 
         LocalDateTime date = params.get(0).getStartTime();
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS).minusHours(3);
@@ -160,6 +176,7 @@ public class Driver implements Counter {
 //                System.out.println("Час: " + (buffer[7] & 0xff));
 
                 totalTime = (((buffer[11] & 0xff) << 24) | ((buffer[10] & 0xff) << 16) | ((buffer[9] & 0xff) << 8) | (buffer[8] & 0xff));
+                accumulatedTime = (((buffer[15] & 0xff) << 24) | ((buffer[14] & 0xff) << 16) | ((buffer[13] & 0xff) << 8) | (buffer[12] & 0xff));
 //                System.out.println("Время накопления данных, сек: " + (((buffer[15] & 0xff) << 24) | ((buffer[14] & 0xff) << 16) | ((buffer[13] & 0xff) << 8) | (buffer[12] & 0xff)));
 
                 int index = 16;
@@ -237,6 +254,99 @@ public class Driver implements Counter {
         } catch(IOException | NullPointerException e) {
             e.printStackTrace();
         }
+    }
+
+    private void print() {
+        System.out.println("Время накопления данных, сек: " + accumulatedTime);
+        System.out.println("Общее время работы: " + getTotalTime());
+        System.out.println("Объем воды за время:");
+        System.out.println("    канал 0: " + getWaterVoleme0());
+        System.out.println("    канал 1: " + getWaterVoleme1());
+        System.out.println("    канал 2: " + getWaterVoleme2());
+        System.out.println("    канал 3: " + getWaterVoleme3());
+        System.out.println("    канал 4: " + getWaterVoleme4());
+        System.out.println("    канал 5: " + getWaterVoleme5());
+        System.out.println("    канал 6: " + getWaterVoleme6());
+        System.out.println("    канал 7: " + getWaterVoleme7());
+        System.out.println("Масса воды за время:");
+        System.out.println("    канал 0: " + getWaterWeight0());
+        System.out.println("    канал 1: " + getWaterWeight1());
+        System.out.println("    канал 2: " + getWaterWeight2());
+        System.out.println("    канал 3: " + getWaterWeight3());
+        System.out.println("    канал 4: " + getWaterWeight4());
+        System.out.println("    канал 5: " + getWaterWeight5());
+        System.out.println("    канал 6: " + getWaterWeight6());
+        System.out.println("    канал 7: " + getWaterWeight7());
+        System.out.println("Температура за время:");
+        System.out.println("    канал 0: " + getWaterTemper0());
+        System.out.println("    канал 1: " + getWaterTemper1());
+        System.out.println("    канал 2: " + getWaterTemper2());
+        System.out.println("    канал 3: " + getWaterTemper3());
+        System.out.println("    канал 4: " + getWaterTemper4());
+        System.out.println("    канал 5: " + getWaterTemper5());
+        System.out.println("    канал 6: " + getWaterTemper6());
+        System.out.println("    канал 7: " + getWaterTemper7());
+        System.out.println("Давление используемое в рассчетах:");
+        System.out.println("    канал 0: " + getWaterPressure0());
+        System.out.println("    канал 1: " + getWaterPressure1());
+        System.out.println("    канал 2: " + getWaterPressure2());
+        System.out.println("    канал 3: " + getWaterPressure3());
+        System.out.println("    канал 4: " + getWaterPressure4());
+        System.out.println("    канал 5: " + getWaterPressure5());
+        System.out.println("    канал 6: " + getWaterPressure6());
+        System.out.println("    канал 7: " + getWaterPressure7());
+        System.out.println("Количество тепла за время:");
+        System.out.println("    канал 0: " + getWaterHeatAmount0());
+        System.out.println("    канал 1: " + getWaterHeatAmount1());
+        System.out.println("    канал 2: " + getWaterHeatAmount2());
+        System.out.println("    канал 3: " + getWaterHeatAmount3());
+        System.out.println("    канал 4: " + getWaterHeatAmount4());
+        System.out.println("    канал 5: " + getWaterHeatAmount5());
+        System.out.println("    канал 6: " + getWaterHeatAmount6());
+        System.out.println("    канал 7: " + getWaterHeatAmount7());
+        System.out.println("Объем воды накопленный:");
+        System.out.println("    канал 0: " + getWaterAccumulated0());
+        System.out.println("    канал 1: " + getWaterAccumulated1());
+        System.out.println("    канал 2: " + getWaterAccumulated2());
+        System.out.println("    канал 3: " + getWaterAccumulated3());
+        System.out.println("    канал 4: " + getWaterAccumulated4());
+        System.out.println("    канал 5: " + getWaterAccumulated5());
+        System.out.println("    канал 6: " + getWaterAccumulated6());
+        System.out.println("    канал 7: " + getWaterAccumulated7());
+        System.out.println("Масса воды накопленная:");
+        System.out.println("    канал 0: " + getWaterMassAccumulated0());
+        System.out.println("    канал 1: " + getWaterMassAccumulated1());
+        System.out.println("    канал 2: " + getWaterMassAccumulated2());
+        System.out.println("    канал 3: " + getWaterMassAccumulated3());
+        System.out.println("    канал 4: " + getWaterMassAccumulated4());
+        System.out.println("    канал 5: " + getWaterMassAccumulated5());
+        System.out.println("    канал 6: " + getWaterMassAccumulated6());
+        System.out.println("    канал 7: " + getWaterMassAccumulated7());
+        System.out.println("Количество тепла накопленное:");
+        System.out.println("    канал 0: " + getWaterHeatAccumulated0());
+        System.out.println("    канал 1: " + getWaterHeatAccumulated1());
+        System.out.println("    канал 2: " + getWaterHeatAccumulated2());
+        System.out.println("    канал 3: " + getWaterHeatAccumulated3());
+        System.out.println("    канал 4: " + getWaterHeatAccumulated4());
+        System.out.println("    канал 5: " + getWaterHeatAccumulated5());
+        System.out.println("    канал 6: " + getWaterHeatAccumulated6());
+        System.out.println("    канал 7: " + getWaterHeatAccumulated7());
+        System.out.println("Количество теплоты в системе ГВС: " + getHeatAmountGVS());
+        System.out.println("Количество теплоты в системе отопления: " + getHeatAmountCO());
+        System.out.println("Количество теплоты в системе вентиляции: " + getHeatAmountVENT());
+        System.out.println("Накопленное количество теплоты в системе ГВС: " + getHeatAmountAccumulatedGVS());
+        System.out.println("Накопленное количество теплоты в системе отопления: " + getHeatAmountAccumulatedCO());
+        System.out.println("Накопленное количество теплоты в системе вентиляции: " + getHeatAmountAccumulatedVENT());
+        System.out.println();
+    }
+
+    /**
+     * Печать в консоль данных теплосчетчика
+     * @param path путь к файлу с данными
+     */
+    public void printData(String path) {
+        this.readFile(path);
+        this.print();
     }
 
     /**
@@ -649,7 +759,7 @@ public class Driver implements Counter {
 
     @Override
     public String getURL() {
-        return URL;
+        return url;
     }
 
     @Override

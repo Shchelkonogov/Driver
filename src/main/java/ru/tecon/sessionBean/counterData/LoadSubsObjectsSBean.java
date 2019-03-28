@@ -30,7 +30,7 @@ public class LoadSubsObjectsSBean {
      * Метод выгружает подписанные объекты и для каждого объекта
      * запускает асинхронный бин загрузки данных
      */
-    @Schedule(minute="*/5", hour="*", persistent = false)
+    @Schedule(minute="5/5", hour="*", persistent = false)
     private void timer() {
         LOG.info("LoadSubsObjectsSBean.timer check new data");
 
