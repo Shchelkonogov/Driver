@@ -7,6 +7,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Singleton bean в котором хранится информация по драйверам
+ */
 @Startup
 @Singleton
 public class AppConfigSBean {
@@ -16,14 +19,28 @@ public class AppConfigSBean {
             {"IASDTU", "ru.tecon.counter.IASDTU.Driver"}})
             .collect(Collectors.toMap(data -> data[0], data -> data[1]));
 
+    /**
+     * Получение пути к драйверу
+     * @param name имя драйвера
+     * @return путь
+     */
     public String get(String name) {
         return countersMap.get(name);
     }
 
+    /**
+     * Существует ли такой драйвер в списке
+     * @param name имя драйвера
+     * @return статус присутствия
+     */
     public boolean containsKey(String name) {
         return countersMap.containsKey(name);
     }
 
+    /**
+     * Получение всех драйверов системы
+     * @return список драйверов
+     */
     public Set<String> getServers() {
         return countersMap.keySet();
     }
