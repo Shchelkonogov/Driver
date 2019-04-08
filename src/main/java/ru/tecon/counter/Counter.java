@@ -10,10 +10,17 @@ import java.util.List;
 public interface Counter {
 
     /**
-     * Выгрузка агреса ftp
-     * @return
+     * Выгрузка opc объектов
+     * @return список объектов
      */
-    String getURL();
+    List<String> getObjects();
+
+    /**
+     * Выгрузка конфигурации объекта
+     * @param object имя объекта
+     * @return список с конфигурацией
+     */
+    List<String> getConfig(String object);
 
     /**
      * Выгрузка данных

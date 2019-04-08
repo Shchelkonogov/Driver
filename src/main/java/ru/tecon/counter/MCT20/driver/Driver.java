@@ -6,7 +6,6 @@ import ru.tecon.counter.MCT20.MCT20CounterParameter;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
 
-import javax.annotation.Resource;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
@@ -14,13 +13,17 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Driver implements Counter {
 
@@ -53,6 +56,55 @@ public class Driver implements Counter {
             Context ctx = new InitialContext();
             url = (String) ctx.lookup("java:comp/env/url");
         } catch (NamingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public List<String> getConfig(String object) {
+        return Stream.of(MCT20Config.values())
+                .map(MCT20Config::getProperty)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<String> getObjects() {
+        return scanFolder(url);
+    }
+
+    /**
+     * Обход ftp
+     * @param folder путь к ftp
+     * @return список счетчиков
+     */
+    private List<String> scanFolder(String folder) {
+        List<String> result = new ArrayList<>();
+        search(result, folder, "\\d\\d");
+        return result;
+    }
+
+    /**
+     * Обход всех папок на ftp
+     * @param result список счетчиков
+     * @param folder путь для поиска
+     * @param regex паттерн поиска имен
+     */
+    private void search(List<String> result, String folder, String regex) {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(folder),
+                entry -> entry.getFileName().toString().matches(regex))) {
+            for (Path entry: stream) {
+                if(Files.isDirectory(entry)) {
+                    switch(entry.getFileName().toString().length()) {
+                        case 2:
+                            search(result, entry.toString(), entry.getFileName() + "\\d\\d");
+                            break;
+                        case 4:
+                            result.add("МСТ-20-" + entry.getFileName());
+                            break;
+                    }
+                }
+            }
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -755,11 +807,6 @@ public class Driver implements Counter {
     @MCT20CounterParameter(name = MCT20Config.HEAT_AMOUNT_ACCUMULATED_VENT)
     public float getHeatAmountAccumulatedVENT() {
         return heatAmountAccumulatedVENT;
-    }
-
-    @Override
-    public String getURL() {
-        return url;
     }
 
     @Override
