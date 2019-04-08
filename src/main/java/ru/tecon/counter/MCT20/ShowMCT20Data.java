@@ -1,4 +1,4 @@
-package ru.tecon;
+package ru.tecon.counter.MCT20;
 
 import ru.tecon.counter.MCT20.driver.Driver;
 
