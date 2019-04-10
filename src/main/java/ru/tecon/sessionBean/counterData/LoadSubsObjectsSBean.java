@@ -1,5 +1,7 @@
 package ru.tecon.sessionBean.counterData;
 
+import ru.tecon.sessionBean.AppConfigSBean;
+
 import javax.annotation.Resource;
 import javax.ejb.*;
 import javax.sql.DataSource;
@@ -17,7 +19,7 @@ public class LoadSubsObjectsSBean {
     private static final Logger LOG = Logger.getLogger(LoadSubsObjectsSBean.class.getName());
 
     private static final String SQL_GET_OBJECTS = "select a.id, a.display_name from tsa_opc_object a " +
-            "where opc_path like '%<Server>MCT-20</Server>' " +
+            "where opc_path like ? " +
             "and exists(select 1 from tsa_linked_object where opc_object_id = a.id and subscribed = 1)";
 
     @Resource(mappedName = "jdbc/OracleDataSource")
@@ -25,6 +27,9 @@ public class LoadSubsObjectsSBean {
 
     @EJB
     private LoadObjectDataSBean bean;
+
+    @EJB
+    private AppConfigSBean appBean;
 
     /**
      * Метод выгружает подписанные объекты и для каждого объекта
@@ -36,9 +41,13 @@ public class LoadSubsObjectsSBean {
 
         try (Connection connect = ds.getConnection();
                 PreparedStatement stmGetObjects = connect.prepareStatement(SQL_GET_OBJECTS)) {
-            ResultSet res = stmGetObjects.executeQuery();
-            while (res.next()) {
-                bean.loadObjectParams(res.getString(1), res.getString(2));
+            for (String serverName: appBean.getServers()) {
+                stmGetObjects.setString(1, "%<Server>" + serverName + "</Server>");
+
+                ResultSet res = stmGetObjects.executeQuery();
+                while (res.next()) {
+                    bean.loadObjectParams(res.getString(1), res.getString(2), serverName);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

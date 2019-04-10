@@ -16,6 +16,10 @@ public class ValueModel {
         return value;
     }
 
+    public void setValue(String value) {
+        this.value = value;
+    }
+
     public LocalDateTime getTime() {
         return time;
     }
