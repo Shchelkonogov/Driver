@@ -54,11 +54,15 @@ public class LoadOPCConfigSBean {
 
                 ResultSet res = stmCheck.executeQuery();
 
-                Counter counter = (Counter) Class.forName(appBean.get(serverName)).newInstance();
+                Counter counter = null;
 
                 List<String> config;
 
                 while (res.next()) {
+                    if (counter == null) {
+                        counter = (Counter) Class.forName(appBean.get(serverName)).newInstance();
+                    }
+
                     stmObjectId.setString(1, res.getString(2));
                     resObjectId = stmObjectId.executeQuery();
                     resObjectId.next();
