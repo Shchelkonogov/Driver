@@ -34,7 +34,7 @@ public class TransferSBean implements TransferBLocal {
 
     private static final String PRE_OBJECT_NAME = "ИАСДТУ_";
 
-    @Resource(mappedName = "jdbc/MSSQLServer")
+    @Resource(name = "jdbc/iasdtu")
     private DataSource ds;
 
     @Override
