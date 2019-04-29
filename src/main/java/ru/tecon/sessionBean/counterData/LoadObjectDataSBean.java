@@ -3,6 +3,7 @@ package ru.tecon.sessionBean.counterData;
 import ru.tecon.counter.Counter;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
+import ru.tecon.model.SubscriptionObject;
 import ru.tecon.sessionBean.AppConfigSBean;
 
 import javax.annotation.Resource;
@@ -43,7 +44,7 @@ public class LoadObjectDataSBean {
     private static final String SQL_ADD_VALUE = "select measure_unit_transformer from tsa_linked_element " +
             "where aspid_object_id = ? and aspid_agr_id = ? and aspid_param_id = ?";
 
-    @Resource(mappedName = "jdbc/OracleDataSource")
+    @Resource(name = "jdbc/DataSource")
     private DataSource ds;
 
     @EJB
@@ -56,79 +57,91 @@ public class LoadObjectDataSBean {
      * Асинхронный метод, который выгружает параметры по объекту,
      * подгружает драйвер, грузит данные по объекту и передает
      * управление асинхронному бину для выгрузки данных в базу
-     * @param objectId id объекта
-     * @param objectName имя объекта
+     * @param objects список объектов для загрузки
      * @return null
      */
     @Asynchronous
-    public Future<Void> loadObjectParams(String objectId, String objectName, String driverName) {
+    public Future<Void> loadObjectParams(List<SubscriptionObject> objects) {
+        LOG.info("LoadObjectDataSBean.loadObjectParams list: " + objects.size() + " " + objects);
         LocalDateTime startDate;
 
-        List<DataModel> paramList = new ArrayList<>();
+        List<DataModel> globalParamList = new ArrayList<>();
 
-        try (Connection connect = ds.getConnection();
-             PreparedStatement stmGetLinkedParameters = connect.prepareStatement(SQL_GET_LINKED_PARAMETERS);
-             PreparedStatement stmGetStartDate = connect.prepareStatement(SQL_GET_START_DATE)) {
-            ResultSet resStartDate;
+        for (SubscriptionObject object: objects) {
+            List<DataModel> paramList = new ArrayList<>();
 
-            stmGetLinkedParameters.setString(1, objectId);
+            try (Connection connect = ds.getConnection();
+                 PreparedStatement stmGetLinkedParameters = connect.prepareStatement(SQL_GET_LINKED_PARAMETERS);
+                 PreparedStatement stmGetStartDate = connect.prepareStatement(SQL_GET_START_DATE)) {
+                ResultSet resStartDate;
 
-            ResultSet resLinked = stmGetLinkedParameters.executeQuery();
-            while (resLinked.next()) {
-                stmGetStartDate.setInt(1, resLinked.getInt(2));
-                stmGetStartDate.setInt(2, resLinked.getInt(3));
-                stmGetStartDate.setInt(3, resLinked.getInt(4));
+                stmGetLinkedParameters.setString(1, object.getId());
 
-                startDate = LocalDateTime.now().minusDays(40).truncatedTo(ChronoUnit.HOURS);
+                ResultSet resLinked = stmGetLinkedParameters.executeQuery();
+                while (resLinked.next()) {
+                    stmGetStartDate.setInt(1, resLinked.getInt(2));
+                    stmGetStartDate.setInt(2, resLinked.getInt(3));
+                    stmGetStartDate.setInt(3, resLinked.getInt(4));
 
-                resStartDate = stmGetStartDate.executeQuery();
-                while (resStartDate.next()) {
-                    startDate = LocalDateTime.parse(resStartDate.getString(1), FORMAT);
+                    startDate = LocalDateTime.now().minusDays(40).truncatedTo(ChronoUnit.HOURS);
+
+                    resStartDate = stmGetStartDate.executeQuery();
+                    while (resStartDate.next()) {
+                        startDate = LocalDateTime.parse(resStartDate.getString(1), FORMAT);
+                    }
+
+                    paramList.add(new DataModel(resLinked.getString(1), resLinked.getInt(2), resLinked.getInt(3),
+                            resLinked.getInt(4), startDate));
                 }
-
-                paramList.add(new DataModel(resLinked.getString(1), resLinked.getInt(2), resLinked.getInt(3),
-                        resLinked.getInt(4), startDate));
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
 
-        LOG.info("LoadObjectDataSBean.loadObjectParams object: " + objectName + " parameters: " + paramList);
+            LOG.info("LoadObjectDataSBean.loadObjectParams object: " + object.getObjectName() + " parameters: " + paramList);
 
-        //Подгрузка драйвера и загрузка данных по объекту
-        try {
-            Counter cl = (Counter) Class.forName(appBean.get(driverName)).newInstance();
-            cl.loadData(paramList, objectName);
-        } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
-            e.printStackTrace();
+            //Подгрузка драйвера и загрузка данных по объекту
+            if (paramList.size() != 0) {
+                try {
+                    Counter cl = (Counter) Class.forName(appBean.get(object.getServerName())).newInstance();
+                    cl.loadData(paramList, object.getObjectName());
+                } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            globalParamList.addAll(paramList);
         }
 
         //Некоторые параметры требуется умножить на значение из базы
         //Получение этих значений и инкрементация данных
         try (Connection connect = ds.getConnection();
-                PreparedStatement stm = connect.prepareStatement(SQL_ADD_VALUE)) {
-            for (DataModel item: paramList) {
+             PreparedStatement stm = connect.prepareStatement(SQL_ADD_VALUE)) {
+            for (DataModel item: globalParamList) {
                 stm.setInt(1, item.getObjectId());
                 stm.setInt(2, item.getAggrId());
                 stm.setInt(3, item.getParamId());
 
-                ResultSet res = stm.executeQuery();
-                res.next();
+                try {
+                    ResultSet res = stm.executeQuery();
+                    res.next();
 
-                if (res.getString(1) != null) {
-                    BigDecimal increment = new BigDecimal(res.getString(1).substring(2));
-                    for (ValueModel model: item.getData()) {
-                        model.setValue(new BigDecimal(model.getValue()).multiply(increment).toString());
+                    if (res.getString(1) != null) {
+                        BigDecimal increment = new BigDecimal(res.getString(1).substring(2));
+                        for (ValueModel model: item.getData()) {
+                            model.setValue(new BigDecimal(model.getValue()).multiply(increment).toString());
+                        }
                     }
+                } catch (SQLException e) {
+                    e.printStackTrace();
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        LOG.info("LoadObjectDataSBean.loadObjectParams object: " + objectName + " parameters with data: " + paramList);
+        LOG.info("LoadObjectDataSBean.loadObjectParams parameters with data: " + globalParamList);
 
-        bean.putData(paramList);
+        bean.putData(globalParamList);
 
         return null;
     }

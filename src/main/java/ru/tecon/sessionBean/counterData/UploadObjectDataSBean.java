@@ -25,7 +25,7 @@ public class UploadObjectDataSBean {
 
     private static final Logger LOG = Logger.getLogger(UploadObjectDataSBean.class.getName());
 
-    @Resource(mappedName = "jdbc/OracleDataSourceFil2")
+    @Resource(name = "jdbc/DataSourceFil")
     private DataSource dsFil2;
 
     private static final String SQL_INSERT_DATA = "{call dz_util1.input_data(?)}";
@@ -57,17 +57,19 @@ public class UploadObjectDataSBean {
             }
 
             if (dataList.size() > 0) {
-                LOG.info("UploadObjectDataSBean.putData put: " + dataList.size() + " values " + System.currentTimeMillis());
+                long timer = System.currentTimeMillis();
+//                LOG.info("UploadObjectDataSBean.putData put: " + dataList.size() + " values " + dataList);
 
-                Array array = connect.createARRAY("T_DZ_UTIL_INPUT_DATA", dataList.toArray());
+                Array array = connect.createOracleArray("T_DZ_UTIL_INPUT_DATA", dataList.toArray());
 
                 stm.setArray(1, array);
                 stm.execute();
 
-                LOG.info("UploadObjectDataSBean.putData done put: " + dataList.size() + " values " + System.currentTimeMillis());
+                LOG.info("UploadObjectDataSBean.putData done put: " + dataList.size() + " values " + (System.currentTimeMillis() - timer));
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            LOG.warning("UploadObjectDataSBean.putData error upload: " + paramList);
         }
         return null;
     }
