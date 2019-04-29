@@ -31,7 +31,7 @@ public class LoadOPCConfigSBean {
     @EJB
     private AppConfigSBean appBean;
 
-    @Resource(mappedName = "jdbc/OracleDataSource")
+    @Resource(name = "jdbc/DataSource")
     private DataSource ds;
 
     /**
