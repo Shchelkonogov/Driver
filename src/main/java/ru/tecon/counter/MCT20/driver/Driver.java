@@ -125,7 +125,7 @@ public class Driver implements Counter {
         while (date.isBefore(now)) {
             String fileName = filePath + "/ans-" + date.format(DATE_FORMAT);
 
-            LOG.info("Driver.loadData check file: " + fileName + " " + System.currentTimeMillis());
+//            LOG.info("Driver.loadData check file: " + fileName + " " + System.currentTimeMillis());
 
             if (Files.exists(Paths.get(fileName))) {
                 readFile(fileName);
@@ -161,7 +161,7 @@ public class Driver implements Counter {
             boolean head = true;
 
             int  bufferSize = 385;
-            byte buffer[] = new byte[385];
+            byte[] buffer = new byte[385];
 
             int recordNumber = 1;
 
@@ -811,79 +811,23 @@ public class Driver implements Counter {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("Driver{");
-        sb.append("totalTime=").append(totalTime);
-        sb.append(", waterVolume=");
-        if (waterVolume == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterVolume.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterVolume[i]);
-            sb.append(']');
-        }
-        sb.append(", waterWeight=");
-        if (waterWeight == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterWeight.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterWeight[i]);
-            sb.append(']');
-        }
-        sb.append(", waterTemper=");
-        if (waterTemper == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterTemper.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterTemper[i]);
-            sb.append(']');
-        }
-        sb.append(", waterPressure=");
-        if (waterPressure == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterPressure.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterPressure[i]);
-            sb.append(']');
-        }
-        sb.append(", waterHeatAmount=");
-        if (waterHeatAmount == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterHeatAmount.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterHeatAmount[i]);
-            sb.append(']');
-        }
-        sb.append(", waterAccumulated=");
-        if (waterAccumulated == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterAccumulated.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterAccumulated[i]);
-            sb.append(']');
-        }
-        sb.append(", waterMassAccumulated=");
-        if (waterMassAccumulated == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterMassAccumulated.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterMassAccumulated[i]);
-            sb.append(']');
-        }
-        sb.append(", waterHeatAccumulated=");
-        if (waterHeatAccumulated == null) sb.append("null");
-        else {
-            sb.append('[');
-            for (int i = 0; i < waterHeatAccumulated.length; ++i)
-                sb.append(i == 0 ? "" : ", ").append(waterHeatAccumulated[i]);
-            sb.append(']');
-        }
-        sb.append(", heatAmountGVS=").append(heatAmountGVS);
-        sb.append(", heatAmountCO=").append(heatAmountCO);
-        sb.append(", heatAmountVENT=").append(heatAmountVENT);
-        sb.append(", heatAmountAccumulatedGVS=").append(heatAmountAccumulatedGVS);
-        sb.append(", heatAmountAccumulatedCO=").append(heatAmountAccumulatedCO);
-        sb.append(", heatAmountAccumulatedVENT=").append(heatAmountAccumulatedVENT);
-        sb.append('}');
-        return sb.toString();
+        return new StringJoiner(", ", Driver.class.getSimpleName() + "[", "]")
+                .add("accumulatedTime=" + accumulatedTime)
+                .add("totalTime=" + totalTime)
+                .add("waterVolume=" + Arrays.toString(waterVolume))
+                .add("waterWeight=" + Arrays.toString(waterWeight))
+                .add("waterTemper=" + Arrays.toString(waterTemper))
+                .add("waterPressure=" + Arrays.toString(waterPressure))
+                .add("waterHeatAmount=" + Arrays.toString(waterHeatAmount))
+                .add("waterAccumulated=" + Arrays.toString(waterAccumulated))
+                .add("waterMassAccumulated=" + Arrays.toString(waterMassAccumulated))
+                .add("waterHeatAccumulated=" + Arrays.toString(waterHeatAccumulated))
+                .add("heatAmountGVS=" + heatAmountGVS)
+                .add("heatAmountCO=" + heatAmountCO)
+                .add("heatAmountVENT=" + heatAmountVENT)
+                .add("heatAmountAccumulatedGVS=" + heatAmountAccumulatedGVS)
+                .add("heatAmountAccumulatedCO=" + heatAmountAccumulatedCO)
+                .add("heatAmountAccumulatedVENT=" + heatAmountAccumulatedVENT)
+                .toString();
     }
 }
