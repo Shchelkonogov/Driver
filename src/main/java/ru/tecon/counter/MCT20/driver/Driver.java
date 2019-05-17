@@ -1,6 +1,7 @@
 package ru.tecon.counter.MCT20.driver;
 
 import ru.tecon.counter.Counter;
+import ru.tecon.counter.MCT20.DriverLoadException;
 import ru.tecon.counter.MCT20.MCT20Config;
 import ru.tecon.counter.MCT20.MCT20CounterParameter;
 import ru.tecon.counter.model.DataModel;
@@ -127,35 +128,40 @@ public class Driver implements Counter {
 
 //            LOG.info("Driver.loadData check file: " + fileName + " " + System.currentTimeMillis());
 
-            if (Files.exists(Paths.get(fileName))) {
-                readFile(fileName);
+            try {
+                if (Files.exists(Paths.get(fileName))) {
 
-                for (DataModel model: params) {
-                    if (!date.isBefore(model.getStartTime())) {
-                        try {
-                            String mName = methodsMap.get(model.getParamName());
-                            if (Objects.nonNull(mName)) {
-                                Object value = cl.getMethod(mName).invoke(this);
-                                if (value instanceof Long) {
-                                    model.addData(new ValueModel(Long.toString((Long) value), date));
-                                } else {
-                                    if (value instanceof Float) {
-                                        model.addData(new ValueModel(Float.toString((Float) value), date));
+                    readFile(fileName);
+
+                    for (DataModel model : params) {
+                        if (!date.isBefore(model.getStartTime())) {
+                            try {
+                                String mName = methodsMap.get(model.getParamName());
+                                if (Objects.nonNull(mName)) {
+                                    Object value = cl.getMethod(mName).invoke(this);
+                                    if (value instanceof Long) {
+                                        model.addData(new ValueModel(Long.toString((Long) value), date));
+                                    } else {
+                                        if (value instanceof Float) {
+                                            model.addData(new ValueModel(Float.toString((Float) value), date));
+                                        }
                                     }
                                 }
+                            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                                e.printStackTrace();
                             }
-                        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                            e.printStackTrace();
                         }
                     }
                 }
+            } catch (DriverLoadException e) {
+                LOG.warning(e.getMessage());
             }
 
             date = date.plusHours(1);
         }
     }
 
-    private void readFile(String path) {
+    private void readFile(String path) throws DriverLoadException {
         LOG.info("Driver.readFile start read: " + path + " " + System.currentTimeMillis());
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(Paths.get(path)))) {
             boolean head = true;
@@ -170,14 +176,14 @@ public class Driver implements Counter {
                     //uint16_t lenA     uint8_t ver
                     if((readInt(inputStream, 2) != 6) || (readInt(inputStream, 1) != 3)) {
                         LOG.warning("Driver.readFile Неверный размер заголовка или версия протокола");
-                        break;
+                        throw new DriverLoadException("Driver.readFile Неверный размер заголовка или версия протокола");
                     }
                     //uint16_t reqNumA
                     LOG.info("Driver.readFile Номер запроса: " + readInt(inputStream, 2));
                     //uint8_t reqRes
                     if(readInt(inputStream, 1) != 0) {
                         LOG.warning("Driver.readFile Результат обработки запроса выдал ошибку");
-                        break;
+                        throw new DriverLoadException("Driver.readFile Результат обработки запроса выдал ошибку");
                     }
 
                     //uint16_t lenD
@@ -189,7 +195,7 @@ public class Driver implements Counter {
                     //uint16_t cntAz
                     if (readInt(inputStream, 2) != 11) {
                         LOG.warning("Driver.readFile Неверное количество архивных записей");
-                        break;
+                        throw new DriverLoadException("Driver.readFile Неверное количество архивных записей");
                     }
                     //uint16_t crcA
                     LOG.info("Driver.readFile Контрольная сумма: " + readInt(inputStream, 2));
@@ -205,12 +211,12 @@ public class Driver implements Counter {
 //                System.out.println("----------------АРХИВНАЯ ЗАПИСЬ----------------");
                 if((buffer[0] & 0xff) != 3) {
                     LOG.warning("Driver.readFile Неверный формат архивной записи");
-                    break;
+                    throw new DriverLoadException("Driver.readFile Неверный формат архивной записи");
                 }
 
                 if ((buffer[bufferSize - 1] & 0xff) != 10) {
                     LOG.warning("Driver.readFile Ошибочное окончание записи");
-                    break;
+                    throw new DriverLoadException("Driver.readFile Ошибочное окончание записи");
                 }
 
                 if (recordNumber != 11) {
@@ -297,7 +303,7 @@ public class Driver implements Counter {
 
                 if (index != (bufferSize - 1)) {
                     LOG.warning("Driver.readFile Ошибка в коде не соответствуют индексы");
-                    break;
+                    throw new DriverLoadException("Driver.readFile Ошибка в коде не соответствуют индексы");
                 }
 
                 //Вывод в двоичном виде
@@ -397,8 +403,13 @@ public class Driver implements Counter {
      * @param path путь к файлу с данными
      */
     public void printData(String path) {
-        this.readFile(path);
-        this.print();
+        try {
+            this.readFile(path);
+            this.print();
+        } catch (DriverLoadException e) {
+            LOG.warning(e.getMessage());
+        }
+
     }
 
     /**
