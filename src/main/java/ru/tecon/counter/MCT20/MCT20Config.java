@@ -263,9 +263,9 @@ public enum MCT20Config {
     ACCUMULATED_WORKING_TIME_Q_ZONE_1("Накопленное время наработки Q зона 1"),
     ACCUMULATED_WORKING_TIME_Q_ZONE_2("Накопленное время наработки Q зона 2"),
 
-    ACCUMULATED_WATER_HEAT_ZONE_0("Количество тепла зона 0"),
-    ACCUMULATED_WATER_HEAT_ZONE_1("Количество тепла зона 1"),
-    ACCUMULATED_WATER_HEAT_ZONE_2("Количество тепла зона 2");
+    ACCUMULATED_WATER_HEAT_ZONE_0("Накопленное количество тепла зона 0"),
+    ACCUMULATED_WATER_HEAT_ZONE_1("Накопленное количество тепла зона 1"),
+    ACCUMULATED_WATER_HEAT_ZONE_2("Накопленное количество тепла зона 2");
 
     private String property;
 

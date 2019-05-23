@@ -34,7 +34,7 @@ public class Driver implements Counter {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HH");
 
-    private long accumulatedTime;
+    private Long accumulatedTime;
 
     private Long totalTime;
     private Float[] waterVolume = new Float[8];
@@ -191,6 +191,11 @@ public class Driver implements Counter {
         }
     }
 
+    /**
+     * Метод парсит файл и выгружает из него значения
+     * @param path путь к файлу
+     * @throws DriverLoadException если произошла какая то ошибка при разборе
+     */
     private void readFile(String path) throws DriverLoadException {
         LOG.info("Driver.readFile start read: " + path + " " + System.currentTimeMillis());
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(Paths.get(path)))) {
@@ -234,8 +239,10 @@ public class Driver implements Counter {
                         recordNumber = load3(inputStream, recordNumber);
                         break;
                     }
-                    case 4:
+                    case 4: {
+                        recordNumber = load4(inputStream, recordNumber);
                         break;
+                    }
                     default: {
                         LOG.warning("Driver.readFile Неверный формат архивной записи");
                         throw new DriverLoadException("Driver.readFile Неверный формат архивной записи");
@@ -247,11 +254,16 @@ public class Driver implements Counter {
         }
     }
 
-    private int load3(BufferedInputStream inputStream, int recordNumber) throws IOException, DriverLoadException {
-        int  bufferSize = 384;
-        byte[] buffer = new byte[bufferSize];
-
-        if (inputStream.available() < 384) {
+    /**
+     * Всевозможные проверки содержимого файла
+     * @param inputStream поток данных
+     * @param buffer буфер куда читаются данные
+     * @param bufferSize размерность буфера
+     * @throws IOException если проблемы с потоком данных
+     * @throws DriverLoadException если не прошли проверки
+     */
+    private void check(BufferedInputStream inputStream, byte[] buffer, int bufferSize) throws IOException, DriverLoadException {
+        if (inputStream.available() < bufferSize) {
             LOG.warning("Driver.load3 Ошибка в данных");
             throw new DriverLoadException("Driver.load3 Ошибка в данных");
         }
@@ -265,6 +277,22 @@ public class Driver implements Counter {
             LOG.warning("Driver.load3 Ошибочное окончание записи");
             throw new DriverLoadException("Driver.load3 Ошибочное окончание записи");
         }
+    }
+
+    /**
+     * 3 версия файла
+     * @param inputStream поток данных
+     * @param recordNumber номер строки (в файле 11 кусков, нужен только 11 кусок)
+     *                     для пропуска 10 первых кусков
+     * @return номер строки, что бы обновить его в вызываемом методе
+     * @throws IOException если ошибки с потоком данных
+     * @throws DriverLoadException если ошибки в проверке
+     */
+    private int load3(BufferedInputStream inputStream, int recordNumber) throws IOException, DriverLoadException {
+        int  bufferSize = 384;
+        byte[] buffer = new byte[bufferSize];
+
+        check(inputStream, buffer, bufferSize);
 
         if (recordNumber != 11) {
             return ++recordNumber;
@@ -279,8 +307,8 @@ public class Driver implements Counter {
 //        System.out.println("День: " + (buffer[5] & 0xff));
 //        System.out.println("Час: " + (buffer[6] & 0xff));
 
-        totalTime = (long) (((buffer[10] & 0xff) << 24) | ((buffer[9] & 0xff) << 16) | ((buffer[8] & 0xff) << 8) | (buffer[7] & 0xff));
-        accumulatedTime = (((buffer[14] & 0xff) << 24) | ((buffer[13] & 0xff) << 16) | ((buffer[12] & 0xff) << 8) | (buffer[11] & 0xff));
+        totalTime = readLong(buffer, 7, 0);
+        accumulatedTime = readLong(buffer, 11, 0);
 
         int index = 15;
         for(int i = 0; i < 8; i++) {
@@ -356,90 +384,125 @@ public class Driver implements Counter {
         return recordNumber;
     }
 
-    private void print() {
-        System.out.println("Время накопления данных, сек: " + accumulatedTime);
-        System.out.println("Общее время работы: " + getTotalTime());
-        System.out.println("Объем воды за время:");
-        System.out.println("    канал 0: " + getWaterVoleme0());
-        System.out.println("    канал 1: " + getWaterVoleme1());
-        System.out.println("    канал 2: " + getWaterVoleme2());
-        System.out.println("    канал 3: " + getWaterVoleme3());
-        System.out.println("    канал 4: " + getWaterVoleme4());
-        System.out.println("    канал 5: " + getWaterVoleme5());
-        System.out.println("    канал 6: " + getWaterVoleme6());
-        System.out.println("    канал 7: " + getWaterVoleme7());
-        System.out.println("Масса воды за время:");
-        System.out.println("    канал 0: " + getWaterWeight0());
-        System.out.println("    канал 1: " + getWaterWeight1());
-        System.out.println("    канал 2: " + getWaterWeight2());
-        System.out.println("    канал 3: " + getWaterWeight3());
-        System.out.println("    канал 4: " + getWaterWeight4());
-        System.out.println("    канал 5: " + getWaterWeight5());
-        System.out.println("    канал 6: " + getWaterWeight6());
-        System.out.println("    канал 7: " + getWaterWeight7());
-        System.out.println("Температура за время:");
-        System.out.println("    канал 0: " + getWaterTemper0());
-        System.out.println("    канал 1: " + getWaterTemper1());
-        System.out.println("    канал 2: " + getWaterTemper2());
-        System.out.println("    канал 3: " + getWaterTemper3());
-        System.out.println("    канал 4: " + getWaterTemper4());
-        System.out.println("    канал 5: " + getWaterTemper5());
-        System.out.println("    канал 6: " + getWaterTemper6());
-        System.out.println("    канал 7: " + getWaterTemper7());
-        System.out.println("Давление используемое в рассчетах:");
-        System.out.println("    канал 0: " + getWaterPressure0());
-        System.out.println("    канал 1: " + getWaterPressure1());
-        System.out.println("    канал 2: " + getWaterPressure2());
-        System.out.println("    канал 3: " + getWaterPressure3());
-        System.out.println("    канал 4: " + getWaterPressure4());
-        System.out.println("    канал 5: " + getWaterPressure5());
-        System.out.println("    канал 6: " + getWaterPressure6());
-        System.out.println("    канал 7: " + getWaterPressure7());
-        System.out.println("Количество тепла за время:");
-        System.out.println("    канал 0: " + getWaterHeatAmount0());
-        System.out.println("    канал 1: " + getWaterHeatAmount1());
-        System.out.println("    канал 2: " + getWaterHeatAmount2());
-        System.out.println("    канал 3: " + getWaterHeatAmount3());
-        System.out.println("    канал 4: " + getWaterHeatAmount4());
-        System.out.println("    канал 5: " + getWaterHeatAmount5());
-        System.out.println("    канал 6: " + getWaterHeatAmount6());
-        System.out.println("    канал 7: " + getWaterHeatAmount7());
-        System.out.println("Объем воды накопленный:");
-        System.out.println("    канал 0: " + getWaterAccumulated0());
-        System.out.println("    канал 1: " + getWaterAccumulated1());
-        System.out.println("    канал 2: " + getWaterAccumulated2());
-        System.out.println("    канал 3: " + getWaterAccumulated3());
-        System.out.println("    канал 4: " + getWaterAccumulated4());
-        System.out.println("    канал 5: " + getWaterAccumulated5());
-        System.out.println("    канал 6: " + getWaterAccumulated6());
-        System.out.println("    канал 7: " + getWaterAccumulated7());
-        System.out.println("Масса воды накопленная:");
-        System.out.println("    канал 0: " + getWaterMassAccumulated0());
-        System.out.println("    канал 1: " + getWaterMassAccumulated1());
-        System.out.println("    канал 2: " + getWaterMassAccumulated2());
-        System.out.println("    канал 3: " + getWaterMassAccumulated3());
-        System.out.println("    канал 4: " + getWaterMassAccumulated4());
-        System.out.println("    канал 5: " + getWaterMassAccumulated5());
-        System.out.println("    канал 6: " + getWaterMassAccumulated6());
-        System.out.println("    канал 7: " + getWaterMassAccumulated7());
-        System.out.println("Количество тепла накопленное:");
-        System.out.println("    канал 0: " + getWaterHeatAccumulated0());
-        System.out.println("    канал 1: " + getWaterHeatAccumulated1());
-        System.out.println("    канал 2: " + getWaterHeatAccumulated2());
-        System.out.println("    канал 3: " + getWaterHeatAccumulated3());
-        System.out.println("    канал 4: " + getWaterHeatAccumulated4());
-        System.out.println("    канал 5: " + getWaterHeatAccumulated5());
-        System.out.println("    канал 6: " + getWaterHeatAccumulated6());
-        System.out.println("    канал 7: " + getWaterHeatAccumulated7());
-        System.out.println("Количество теплоты в системе ГВС: " + getHeatAmountGVS());
-        System.out.println("Количество теплоты в системе отопления: " + getHeatAmountCO());
-        System.out.println("Количество теплоты в системе вентиляции: " + getHeatAmountVENT());
-        System.out.println("Накопленное количество теплоты в системе ГВС: " + getHeatAmountAccumulatedGVS());
-        System.out.println("Накопленное количество теплоты в системе отопления: " + getHeatAmountAccumulatedCO());
-        System.out.println("Накопленное количество теплоты в системе вентиляции: " + getHeatAmountAccumulatedVENT());
-        System.out.println();
+    /**
+     * 4 версия файла
+     * @param inputStream поток данных
+     * @param recordNumber номер строки (в файле 11 кусков, нужен только 11 кусок)
+     *                     для пропуска 10 первых кусков
+     * @return номер строки, что бы обновить его в вызываемом методе
+     * @throws IOException если ошибки с потоком данных
+     * @throws DriverLoadException если ошибки в проверке
+     */
+    private int load4(BufferedInputStream inputStream, int recordNumber) throws IOException, DriverLoadException {
+        int  bufferSize = 888;
+        byte[] buffer = new byte[bufferSize];
 
-        System.out.println(this);
+        check(inputStream, buffer, bufferSize);
+
+        if (recordNumber != 11) {
+            return ++recordNumber;
+        }
+
+//        System.out.println("ХЗ ЧТО ЭТО: " + (buffer[0] & 0xff));
+//        System.out.println("ХЗ ЧТО ЭТО: " + (buffer[1] & 0xff));
+//        System.out.println("ХЗ ЧТО ЭТО: " + (buffer[2] & 0xff));
+//
+//        System.out.println("Год: 20" + (buffer[3] & 0xff));
+//        System.out.println("Месяц: " + (buffer[4] & 0xff));
+//        System.out.println("День: " + (buffer[5] & 0xff));
+//        System.out.println("Час: " + (buffer[6] & 0xff));
+
+        totalTime = readLong(buffer, 7, 0);
+        offTime = readLong(buffer, 11, 0);
+        offTimeAccumulated = readLong(buffer, 15, 0);
+
+        int index = 19;
+        for (int i = 0; i < 4; i++) {
+            stopTimeGError1[2 * i] = readLong(buffer, index, 0);
+            stopTimeGError2[2 * i] = readLong(buffer, index, 4);
+            stopTimeGError3[2 * i] = readLong(buffer, index, 8);
+            workingTimeG[2 * i] = readLong(buffer, index, 12);
+            waterVolume[2 * i] = readFloat(buffer, index, 16);
+
+            stopTimeT[2 * i] = readLong(buffer, index, 20);
+            workingTimeT[2 * i] = readLong(buffer, index, 24);
+            waterTemper[2 * i] = readFloat(buffer, index, 28);
+
+            stopTimeP[2 * i] = readLong(buffer, index, 32);
+            workingTimeP[2 * i] = readLong(buffer, index, 36);
+            waterPressure[2 * i] = readFloat(buffer, index, 40);
+
+            stopTimeMQ[2 * i] = readLong(buffer, index, 44);
+            workingTimeMQ[2 * i] = readLong(buffer, index, 48);
+            waterWeight[2 * i] = readFloat(buffer, index, 52);
+            waterHeatAmount[2 * i] = readFloat(buffer, index, 56);
+
+            accumulatedStopTimeGError1[2 * i] = readLong(buffer, index, 60);
+            accumulatedStopTimeGError2[2 * i] = readLong(buffer, index, 64);
+            accumulatedStopTimeGError3[2 * i] = readLong(buffer, index, 68);
+            accumulatedWorkingTimeG[2 * i] = readLong(buffer, index, 72);
+            waterAccumulated[2 * i] = readFloat(buffer, index, 76);
+            accumulatedStopTimeMQ[2 * i] = readLong(buffer, index, 80);
+            accumulatedWorkingTimeMQ[2 * i] = readLong(buffer, index, 84);
+            waterMassAccumulated[2 * i] = readFloat(buffer, index, 88);
+            waterHeatAccumulated[2 * i] = readFloat(buffer, index, 92);
+
+            stopTimeGError1[(2 * i) + 1] = readLong(buffer, index, 96);
+            stopTimeGError2[(2 * i) + 1] = readLong(buffer, index, 100);
+            stopTimeGError3[(2 * i) + 1] = readLong(buffer, index, 104);
+            workingTimeG[(2 * i) + 1] = readLong(buffer, index, 108);
+            waterVolume[(2 * i) + 1] = readFloat(buffer, index, 112);
+
+            stopTimeT[(2 * i) + 1] = readLong(buffer, index, 116);
+            workingTimeT[(2 * i) + 1] = readLong(buffer, index, 120);
+            waterTemper[(2 * i) + 1] = readFloat(buffer, index, 124);
+
+            stopTimeP[(2 * i) + 1] = readLong(buffer, index, 128);
+            workingTimeP[(2 * i) + 1] = readLong(buffer, index, 132);
+            waterPressure[(2 * i) + 1] = readFloat(buffer, index, 136);
+
+            stopTimeMQ[(2 * i) + 1] = readLong(buffer, index, 140);
+            workingTimeMQ[(2 * i) + 1] = readLong(buffer, index, 144);
+            waterWeight[(2 * i) + 1] = readFloat(buffer, index, 148);
+            waterHeatAmount[(2 * i) + 1] = readFloat(buffer, index, 152);
+
+            accumulatedStopTimeGError1[(2 * i) + 1] = readLong(buffer, index, 156);
+            accumulatedStopTimeGError2[(2 * i) + 1] = readLong(buffer, index, 160);
+            accumulatedStopTimeGError3[(2 * i) + 1] = readLong(buffer, index, 164);
+            accumulatedWorkingTimeG[(2 * i) + 1] = readLong(buffer, index, 168);
+            waterAccumulated[(2 * i) + 1] = readFloat(buffer, index, 172);
+            accumulatedStopTimeMQ[(2 * i) + 1] = readLong(buffer, index, 176);
+            accumulatedWorkingTimeMQ[(2 * i) + 1] = readLong(buffer, index, 180);
+            waterMassAccumulated[(2 * i) + 1] = readFloat(buffer, index, 184);
+            waterHeatAccumulated[(2 * i) + 1] = readFloat(buffer, index, 188);
+
+            if (i < 3) {
+                currentStopTimeError1[i] = readLong(buffer, index, 192);
+                currentStopTimeError2[i] = readLong(buffer, index, 196);
+                workingTimeQ[i] = readLong(buffer, index, 200);
+                waterHeatZone[i] = readFloat(buffer, index, 204);
+
+                accumulatedCurrentStopTimeError1[i] = readLong(buffer, index, 208);
+                accumulatedCurrentStopTimeError2[i] = readLong(buffer, index, 212);
+                accumulatedWorkingTimeQ[i] = readLong(buffer, index, 216);
+                accumulatedWaterHeatZone[i] = readFloat(buffer, index, 220);
+                index += 224;
+            } else {
+                index += 192;
+            }
+        }
+
+//        System.out.println("Диагностика прибора: " + (((buffer[index + 1] & 0xff) << 8) | (buffer[index] & 0xff)));
+        index += 2;
+
+//        System.out.println("Контрольная сумма записи: " + (((buffer[index + 1] & 0xff) << 8) | (buffer[index] & 0xff)));
+        index += 2;
+
+        if (index != (bufferSize - 1)) {
+            LOG.warning("Driver.load3 Ошибка в коде не соответствуют индексы");
+            throw new DriverLoadException("Driver.load3 Ошибка в коде не соответствуют индексы");
+        }
+        return recordNumber;
     }
 
     /**
@@ -449,7 +512,7 @@ public class Driver implements Counter {
     public void printData(String path) {
         try {
             this.readFile(path);
-            this.print();
+            System.out.println(this);
         } catch (DriverLoadException e) {
             LOG.warning(e.getMessage());
         }
@@ -468,6 +531,20 @@ public class Driver implements Counter {
                 ((buffer[index + addIndex + 2] & 0xff) << 16) |
                 ((buffer[index + addIndex + 1] & 0xff) << 8) |
                 (buffer[index + addIndex] & 0xff));
+    }
+
+    /**
+     * Перевод данных из бинарного типа в long
+     * @param buffer буфер с данными
+     * @param index индекс
+     * @param addIndex инкремент индекса
+     * @return результат
+     */
+    private long readLong(byte[] buffer, int index, int addIndex) {
+        return ((buffer[index + addIndex + 3] & 0xff) << 24) |
+                    ((buffer[index + addIndex + 2] & 0xff) << 16) |
+                    ((buffer[index + addIndex + 1] & 0xff) << 8) |
+                    (buffer[index + addIndex] & 0xff);
     }
 
     /**
@@ -1635,49 +1712,49 @@ public class Driver implements Counter {
 
     @Override
     public String toString() {
-        return new StringJoiner(", ", Driver.class.getSimpleName() + "[", "]")
-                .add("accumulatedTime=" + accumulatedTime)
-                .add("totalTime=" + totalTime)
-                .add("waterVolume=" + Arrays.toString(waterVolume))
-                .add("waterWeight=" + Arrays.toString(waterWeight))
-                .add("waterTemper=" + Arrays.toString(waterTemper))
-                .add("waterPressure=" + Arrays.toString(waterPressure))
-                .add("waterHeatAmount=" + Arrays.toString(waterHeatAmount))
-                .add("waterAccumulated=" + Arrays.toString(waterAccumulated))
-                .add("waterMassAccumulated=" + Arrays.toString(waterMassAccumulated))
-                .add("waterHeatAccumulated=" + Arrays.toString(waterHeatAccumulated))
-                .add("heatAmountGVS=" + heatAmountGVS)
-                .add("heatAmountCO=" + heatAmountCO)
-                .add("heatAmountVENT=" + heatAmountVENT)
-                .add("heatAmountAccumulatedGVS=" + heatAmountAccumulatedGVS)
-                .add("heatAmountAccumulatedCO=" + heatAmountAccumulatedCO)
-                .add("heatAmountAccumulatedVENT=" + heatAmountAccumulatedVENT)
-                .add("offTime=" + offTime)
-                .add("offTimeAccumulated=" + offTimeAccumulated)
-                .add("stopTimeGError1=" + Arrays.toString(stopTimeGError1))
-                .add("stopTimeGError2=" + Arrays.toString(stopTimeGError2))
-                .add("stopTimeGError3=" + Arrays.toString(stopTimeGError3))
-                .add("workingTimeG=" + Arrays.toString(workingTimeG))
-                .add("stopTimeT=" + Arrays.toString(stopTimeT))
-                .add("workingTimeT=" + Arrays.toString(workingTimeT))
-                .add("stopTimeP=" + Arrays.toString(stopTimeP))
-                .add("workingTimeP=" + Arrays.toString(workingTimeP))
-                .add("stopTimeMQ=" + Arrays.toString(stopTimeMQ))
-                .add("workingTimeMQ=" + Arrays.toString(workingTimeMQ))
-                .add("accumulatedStopTimeGError1=" + Arrays.toString(accumulatedStopTimeGError1))
-                .add("accumulatedStopTimeGError2=" + Arrays.toString(accumulatedStopTimeGError2))
-                .add("accumulatedStopTimeGError3=" + Arrays.toString(accumulatedStopTimeGError3))
-                .add("accumulatedWorkingTimeG=" + Arrays.toString(accumulatedWorkingTimeG))
-                .add("accumulatedStopTimeMQ=" + Arrays.toString(accumulatedStopTimeMQ))
-                .add("accumulatedWorkingTimeMQ=" + Arrays.toString(accumulatedWorkingTimeMQ))
-                .add("currentStopTimeError1=" + Arrays.toString(currentStopTimeError1))
-                .add("currentStopTimeError2=" + Arrays.toString(currentStopTimeError2))
-                .add("workingTimeQ=" + Arrays.toString(workingTimeQ))
-                .add("waterHeatZone=" + Arrays.toString(waterHeatZone))
-                .add("accumulatedCurrentStopTimeError1=" + Arrays.toString(accumulatedCurrentStopTimeError1))
-                .add("accumulatedCurrentStopTimeError2=" + Arrays.toString(accumulatedCurrentStopTimeError2))
-                .add("accumulatedWorkingTimeQ=" + Arrays.toString(accumulatedWorkingTimeQ))
-                .add("accumulatedWaterHeatZone=" + Arrays.toString(accumulatedWaterHeatZone))
+        return new StringJoiner(",\n", Driver.class.getSimpleName() + "[\n", "\n]")
+                .add("  accumulatedTime (Время накопления данных, сек) = " + accumulatedTime)
+                .add("  totalTime (Общее время работы) = " + totalTime)
+                .add("  waterVolume (Объем воды за время) = " + Arrays.toString(waterVolume))
+                .add("  waterWeight (Масса воды за время) = " + Arrays.toString(waterWeight))
+                .add("  waterTemper (Температура за время) = " + Arrays.toString(waterTemper))
+                .add("  waterPressure (Давление используемое в рассчетах) = " + Arrays.toString(waterPressure))
+                .add("  waterHeatAmount (Количество тепла за время) = " + Arrays.toString(waterHeatAmount))
+                .add("  waterAccumulated (Объем воды накопленный) = " + Arrays.toString(waterAccumulated))
+                .add("  waterMassAccumulated (Масса воды накопленная) = " + Arrays.toString(waterMassAccumulated))
+                .add("  waterHeatAccumulated (Количество тепла накопленное) = " + Arrays.toString(waterHeatAccumulated))
+                .add("  heatAmountGVS (Количество теплоты в системе ГВС) = " + heatAmountGVS)
+                .add("  heatAmountCO (Количество теплоты в системе отопления) = " + heatAmountCO)
+                .add("  heatAmountVENT (Количество теплоты в системе вентиляции) = " + heatAmountVENT)
+                .add("  heatAmountAccumulatedGVS (Накопленное количество теплоты в системе ГВС) = " + heatAmountAccumulatedGVS)
+                .add("  heatAmountAccumulatedCO (Накопленное количество теплоты в системе отопления) = " + heatAmountAccumulatedCO)
+                .add("  heatAmountAccumulatedVENT (Накопленное количество теплоты в системе вентиляции) = " + heatAmountAccumulatedVENT)
+                .add("  offTime (Время выключенного состояния) = " + offTime)
+                .add("  offTimeAccumulated (Накопленное время выключеннного состояния) = " + offTimeAccumulated)
+                .add("  stopTimeGError1 (Время останова измерений G (отказ ПЭП, отсечка G, несоответствие скорости звука, коррекция часов)) = " + Arrays.toString(stopTimeGError1))
+                .add("  stopTimeGError2 (Время останова измерений G (превышение уставки Gmin)) = " + Arrays.toString(stopTimeGError2))
+                .add("  stopTimeGError3 (Время останова измерений G (превышение уставки Gmax)) = " + Arrays.toString(stopTimeGError3))
+                .add("  workingTimeG (Время наработки G) = " + Arrays.toString(workingTimeG))
+                .add("  stopTimeT (Время останова T) = " + Arrays.toString(stopTimeT))
+                .add("  workingTimeT (Время наработки T) = " + Arrays.toString(workingTimeT))
+                .add("  stopTimeP (Время останова P) = " + Arrays.toString(stopTimeP))
+                .add("  workingTimeP (Время наработки P) = " + Arrays.toString(workingTimeP))
+                .add("  stopTimeMQ (Время останова M/Q (при недостоверности G, T, P)) = " + Arrays.toString(stopTimeMQ))
+                .add("  workingTimeMQ (Время наработки M/Q) = " + Arrays.toString(workingTimeMQ))
+                .add("  accumulatedStopTimeGError1 (Накопленное время останова измерений G (отказ ПЭП, отсечка G, несоответствие скорости звука, коррекция часов)) = " + Arrays.toString(accumulatedStopTimeGError1))
+                .add("  accumulatedStopTimeGError2 (Накопленное время останова измерений G (превышение уставки Gmin)) = " + Arrays.toString(accumulatedStopTimeGError2))
+                .add("  accumulatedStopTimeGError3 (Накопленное время останова измерений G (превышение уставки Gmax)) = " + Arrays.toString(accumulatedStopTimeGError3))
+                .add("  accumulatedWorkingTimeG (Накопленное время наработки G) = " + Arrays.toString(accumulatedWorkingTimeG))
+                .add("  accumulatedStopTimeMQ (Накопленное время останова M/Q (при недостоверности G, T, P)) = " + Arrays.toString(accumulatedStopTimeMQ))
+                .add("  accumulatedWorkingTimeMQ (Накопленное время наработки M/Q) = " + Arrays.toString(accumulatedWorkingTimeMQ))
+                .add("  currentStopTimeError1 (Время останова измерений при перепаде температур П-О <= 3) = " + Arrays.toString(currentStopTimeError1))
+                .add("  currentStopTimeError2 (Время останова измерений с прочими отказами (отказ одного из каналов)) = " + Arrays.toString(currentStopTimeError2))
+                .add("  workingTimeQ (Время наработки Q) = " + Arrays.toString(workingTimeQ))
+                .add("  waterHeatZone (Количество тепла) = " + Arrays.toString(waterHeatZone))
+                .add("  accumulatedCurrentStopTimeError1 (Накопленное время останова измерений при перепаде температур П-О <= 3) = " + Arrays.toString(accumulatedCurrentStopTimeError1))
+                .add("  accumulatedCurrentStopTimeError2 (Накопленное время останова измерений с прочими отказами (отказ одного из каналов)) = " + Arrays.toString(accumulatedCurrentStopTimeError2))
+                .add("  accumulatedWorkingTimeQ (Накопленное время наработки Q) = " + Arrays.toString(accumulatedWorkingTimeQ))
+                .add("  accumulatedWaterHeatZone (Накопленное количество тепла) = " + Arrays.toString(accumulatedWaterHeatZone))
                 .toString();
     }
 }
