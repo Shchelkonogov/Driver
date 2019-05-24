@@ -142,7 +142,7 @@ public class Driver implements Counter {
         Collections.sort(params);
 
         String counterNumber = objectName.substring(objectName.length() - 4);
-        String filePath = url + "/" + counterNumber.substring(0, 2) + "/" + counterNumber;
+        String filePath = url + "/" + counterNumber.substring(0, 2) + "/" + counterNumber + "/";
 
         LocalDateTime date = params.get(0).getStartTime();
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS).minusHours(3);
@@ -151,40 +151,45 @@ public class Driver implements Counter {
         Map<String, String> methodsMap = this.getMethodsMap();
 
         while (date.isBefore(now)) {
-            String fileName = filePath + "/ans-" + date.format(DATE_FORMAT);
-
-//            LOG.info("Driver.loadData check file: " + fileName + " " + System.currentTimeMillis());
-
             try {
-                if (Files.exists(Paths.get(fileName))) {
+                LocalDateTime finalDate = date;
+                DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
+                        entry -> entry.getFileName().toString().matches("ans-" + finalDate.format(DATE_FORMAT))
+                                || entry.getFileName().toString().matches(counterNumber+ "\\D" + finalDate.format(DATE_FORMAT)) );
+                for (Path entry: stream) {
+                    if (!Files.isDirectory(entry)) {
+                        LOG.info("Driver.loadData read file: " + entry);
 
-                    readFile(fileName);
+                        readFile(entry.toString());
 
-                    for (DataModel model: params) {
-                        if (!date.isBefore(model.getStartTime())) {
-                            try {
-                                String mName = methodsMap.get(model.getParamName());
-                                if (Objects.nonNull(mName)) {
-                                    Object value = cl.getMethod(mName).invoke(this);
-                                    if (value == null) {
-                                        continue;
-                                    }
-                                    if (value instanceof Long) {
-                                        model.addData(new ValueModel(Long.toString((Long) value), date));
-                                    } else {
-                                        if (value instanceof Float) {
-                                            model.addData(new ValueModel(Float.toString((Float) value), date));
+                        for (DataModel model: params) {
+                            if (!date.isBefore(model.getStartTime())) {
+                                try {
+                                    String mName = methodsMap.get(model.getParamName());
+                                    if (Objects.nonNull(mName)) {
+                                        Object value = cl.getMethod(mName).invoke(this);
+                                        if (value == null) {
+                                            continue;
+                                        }
+                                        if (value instanceof Long) {
+                                            model.addData(new ValueModel(Long.toString((Long) value), date));
+                                        } else {
+                                            if (value instanceof Float) {
+                                                model.addData(new ValueModel(Float.toString((Float) value), date));
+                                            }
                                         }
                                     }
+                                } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                                    e.printStackTrace();
                                 }
-                            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                                e.printStackTrace();
                             }
                         }
                     }
                 }
             } catch (DriverLoadException e) {
                 LOG.warning(e.getMessage());
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
             date = date.plusHours(1);
