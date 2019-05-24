@@ -97,7 +97,7 @@ public class LoadObjectDataSBean {
                 e.printStackTrace();
             }
 
-            LOG.info("LoadObjectDataSBean.loadObjectParams object: " + object.getObjectName() + " parameters: " + paramList);
+            LOG.info("LoadObjectDataSBean.loadObjectParams object: " + object.getObjectName() + " parameters count: " + paramList.size());
 
             //Подгрузка драйвера и загрузка данных по объекту
             if (paramList.size() != 0) {
@@ -139,7 +139,7 @@ public class LoadObjectDataSBean {
             e.printStackTrace();
         }
 
-        LOG.info("LoadObjectDataSBean.loadObjectParams parameters with data: " + globalParamList);
+//        LOG.info("LoadObjectDataSBean.loadObjectParams parameters with data: " + globalParamList);
 
         bean.putData(globalParamList);
 
