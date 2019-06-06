@@ -83,7 +83,7 @@ public class TransferSBean implements TransferBLocal {
             for (DataModel item: params) {
                 stm.setString(1, objectName.replace(PRE_OBJECT_NAME, ""));
                 stm.setString(2, item.getParamName());
-                stm.setString(3, item.getStartTime().format(FORMAT) + ":00");
+                stm.setString(3, item.getStartTime().plusHours(3).format(FORMAT) + ":00");
 
                 ResultSet res = stm.executeQuery();
                 while (res.next()) {
