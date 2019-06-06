@@ -14,10 +14,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -150,46 +147,56 @@ public class Driver implements Counter {
         Class<?> cl = this.getClass();
         Map<String, String> methodsMap = this.getMethodsMap();
 
+        List<String> filesList = new ArrayList<>();
         while (date.isBefore(now)) {
+            filesList.clear();
+            LocalDateTime finalDate = date;
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
+                    entry -> entry.getFileName().toString().matches("ans-" + finalDate.format(DATE_FORMAT))
+                            || entry.getFileName().toString().matches(counterNumber+ "\\D" + finalDate.format(DATE_FORMAT)))) {
+                stream.forEach(e -> {
+                    if (!Files.isDirectory(e)) {
+                        filesList.add(e.toString());
+                    }
+                });
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
             try {
-                LocalDateTime finalDate = date;
-                DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
-                        entry -> entry.getFileName().toString().matches("ans-" + finalDate.format(DATE_FORMAT))
-                                || entry.getFileName().toString().matches(counterNumber+ "\\D" + finalDate.format(DATE_FORMAT)) );
-                for (Path entry: stream) {
-                    if (!Files.isDirectory(entry)) {
-                        LOG.info("Driver.loadData read file: " + entry);
+                for (String entry: filesList) {
+                    LOG.info("Driver.loadData read file: " + entry);
 
-                        readFile(entry.toString());
+                    readFile(entry);
 
-                        for (DataModel model: params) {
-                            if (!date.isBefore(model.getStartTime())) {
-                                try {
-                                    String mName = methodsMap.get(model.getParamName());
-                                    if (Objects.nonNull(mName)) {
-                                        Object value = cl.getMethod(mName).invoke(this);
-                                        if (value == null) {
-                                            continue;
-                                        }
-                                        if (value instanceof Long) {
-                                            model.addData(new ValueModel(Long.toString((Long) value), date));
-                                        } else {
-                                            if (value instanceof Float) {
-                                                model.addData(new ValueModel(Float.toString((Float) value), date));
-                                            }
+                    for (DataModel model: params) {
+                        if (!date.isBefore(model.getStartTime())) {
+                            try {
+                                String mName = methodsMap.get(model.getParamName());
+                                if (Objects.nonNull(mName)) {
+                                    Object value = cl.getMethod(mName).invoke(this);
+                                    if (value == null) {
+                                        continue;
+                                    }
+                                    if (value instanceof Long) {
+                                        model.addData(new ValueModel(Long.toString((Long) value), date));
+                                    } else {
+                                        if (value instanceof Float) {
+                                            model.addData(new ValueModel(Float.toString((Float) value), date));
                                         }
                                     }
-                                } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                                    e.printStackTrace();
                                 }
+                            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                                e.printStackTrace();
                             }
                         }
                     }
                 }
             } catch (DriverLoadException e) {
                 LOG.warning(e.getMessage());
-            } catch (IOException e) {
-                e.printStackTrace();
+                if (e.getMessage().equals("IOException")) {
+                    return;
+                }
             }
 
             date = date.plusHours(1);
@@ -203,7 +210,7 @@ public class Driver implements Counter {
      */
     private void readFile(String path) throws DriverLoadException {
         LOG.info("Driver.readFile start read: " + path + " " + System.currentTimeMillis());
-        try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(Paths.get(path)))) {
+        try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(Paths.get(path), StandardOpenOption.READ))) {
             boolean head = true;
 
             int recordNumber = 1;
@@ -254,8 +261,9 @@ public class Driver implements Counter {
                     }
                 }
             }
-        } catch(IOException | NullPointerException e) {
+        } catch(IOException e) {
             e.printStackTrace();
+            throw new DriverLoadException("IOException");
         }
     }
 
