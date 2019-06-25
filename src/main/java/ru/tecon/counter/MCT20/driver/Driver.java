@@ -598,6 +598,10 @@ public class Driver implements Counter {
         return result;
     }
 
+    public String getUrl() {
+        return url;
+    }
+
     @MCT20CounterParameter(name = MCT20Config.TOTAL_TIME)
     public Long getTotalTime() {
         return totalTime;
