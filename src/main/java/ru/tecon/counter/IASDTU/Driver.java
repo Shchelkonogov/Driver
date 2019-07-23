@@ -36,6 +36,10 @@ public class Driver implements Counter {
     }
 
     @Override
+    public void clear() {
+    }
+
+    @Override
     public void loadData(List<DataModel> params, String objectName) {
         bean.loadData(params, objectName);
     }
