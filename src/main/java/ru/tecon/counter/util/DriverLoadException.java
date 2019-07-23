@@ -1,4 +1,4 @@
-package ru.tecon.counter.MCT20;
+package ru.tecon.counter.util;
 
 public class DriverLoadException extends Exception {
 
