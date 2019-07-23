@@ -28,4 +28,9 @@ public interface Counter {
      * @param objectName имя объекта
      */
     void loadData(List<DataModel> params, String objectName);
+
+    /**
+     * Удаление старой информации из хранилища
+     */
+    void clear();
 }
