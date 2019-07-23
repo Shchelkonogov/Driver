@@ -1,11 +1,10 @@
-package ru.tecon.counter.MCT20.driver;
+package ru.tecon.counter.MCT20;
 
 import ru.tecon.counter.Counter;
-import ru.tecon.counter.MCT20.DriverLoadException;
-import ru.tecon.counter.MCT20.MCT20Config;
-import ru.tecon.counter.MCT20.MCT20CounterParameter;
+import ru.tecon.counter.util.DriverLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
+import ru.tecon.counter.util.Drivers;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -94,44 +93,13 @@ public class Driver implements Counter {
 
     @Override
     public List<String> getObjects() {
-        return scanFolder(url);
+        List<String> objects = Drivers.scan(url, Arrays.asList("\\d{4}a\\d{8}-\\d{2}", "ans-\\d{8}-\\d{2}"));
+        return objects.stream().map(e -> e = "МСТ-20-" + e).collect(Collectors.toList());
     }
 
-    /**
-     * Обход ftp
-     * @param folder путь к ftp
-     * @return список счетчиков
-     */
-    private List<String> scanFolder(String folder) {
-        List<String> result = new ArrayList<>();
-        search(result, folder, "\\d\\d");
-        return result;
-    }
-
-    /**
-     * Обход всех папок на ftp
-     * @param result список счетчиков
-     * @param folder путь для поиска
-     * @param regex паттерн поиска имен
-     */
-    private void search(List<String> result, String folder, String regex) {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(folder),
-                entry -> entry.getFileName().toString().matches(regex))) {
-            for (Path entry: stream) {
-                if(Files.isDirectory(entry)) {
-                    switch(entry.getFileName().toString().length()) {
-                        case 2:
-                            search(result, entry.toString(), entry.getFileName() + "\\d\\d");
-                            break;
-                        case 4:
-                            result.add("МСТ-20-" + entry.getFileName());
-                            break;
-                    }
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    @Override
+    public void clear() {
+        Drivers.clear(this, url, Arrays.asList("\\d{4}a\\d{8}-\\d{2}", "ans-\\d{8}-\\d{2}"));
     }
 
     @Override
@@ -153,7 +121,7 @@ public class Driver implements Counter {
             LocalDateTime finalDate = date;
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
                     entry -> entry.getFileName().toString().matches("ans-" + finalDate.format(DATE_FORMAT))
-                            || entry.getFileName().toString().matches(counterNumber+ "\\D" + finalDate.format(DATE_FORMAT)))) {
+                            || entry.getFileName().toString().matches(counterNumber + "a" + finalDate.format(DATE_FORMAT)))) {
                 stream.forEach(e -> {
                     if (!Files.isDirectory(e)) {
                         filesList.add(e.toString());
@@ -588,7 +556,7 @@ public class Driver implements Counter {
      */
     private Map<String, String> getMethodsMap() {
         Map<String, String> result = new HashMap<>();
-        Method[] method = Driver.class.getMethods();
+        Method[] method = this.getClass().getMethods();
 
         for(Method md: method){
             if (md.isAnnotationPresent(MCT20CounterParameter.class)) {
