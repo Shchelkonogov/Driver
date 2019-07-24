@@ -58,7 +58,7 @@ public class UploadObjectDataSBean {
 
             if (dataList.size() > 0) {
                 long timer = System.currentTimeMillis();
-//                LOG.info("UploadObjectDataSBean.putData put: " + dataList.size() + " values " + dataList);
+//                LOG.info("UploadObjectDataSBean.putData put: " + dataList.size() + " values " + paramList);
 
                 Array array = connect.createOracleArray("T_DZ_UTIL_INPUT_DATA", dataList.toArray());
 
