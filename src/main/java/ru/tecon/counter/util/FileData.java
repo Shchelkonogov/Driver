@@ -15,11 +15,11 @@ public class FileData implements Serializable, Comparable<FileData> {
         this.dateTime = dateTime;
     }
 
-    Path getPath() {
+    public Path getPath() {
         return path;
     }
 
-    LocalDateTime getDateTime() {
+    public LocalDateTime getDateTime() {
         return dateTime;
     }
 
