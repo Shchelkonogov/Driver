@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DataModel implements Comparable<Object> {
+public class DataModel implements Comparable<DataModel> {
 
     private String paramName;
     private int objectId;
@@ -41,6 +41,10 @@ public class DataModel implements Comparable<Object> {
         return aggrId;
     }
 
+    public void setStartTime(LocalDateTime startTime) {
+        this.startTime = startTime;
+    }
+
     public LocalDateTime getStartTime() {
         return startTime;
     }
@@ -61,15 +65,13 @@ public class DataModel implements Comparable<Object> {
     }
 
     @Override
-    public int compareTo(Object o) {
-        DataModel item = (DataModel) o;
-        if (this.startTime.isBefore(item.startTime)) {
-            return -1;
-        } else {
-            if (item.startTime.isBefore(this.startTime)) {
-                return 1;
-            }
+    public int compareTo(DataModel o) {
+        if (o.startTime == null) {
+            return 1;
         }
-        return 0;
+        if (startTime == null) {
+            return -1;
+        }
+        return startTime.compareTo(o.startTime);
     }
 }
