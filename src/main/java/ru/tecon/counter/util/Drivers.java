@@ -10,9 +10,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -83,9 +81,9 @@ public class Drivers {
      * Удаление информации по данным которые уже устарели
      * @param counterClass драйвер
      * @param url путь к файлам
-     * @param patter паттерн поиска файлов
+     * @param pattern паттерн поиска файлов
      */
-    public static void clear(Counter counterClass, String url, List<String> patter) {
+    public static void clear(Counter counterClass, String url, List<String> pattern) {
         log.info("clear start");
         for (String el: counterClass.getObjects()) {
             AtomicInteger i = new AtomicInteger();
@@ -95,7 +93,7 @@ public class Drivers {
             log.info("clear check path: " + filePath);
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
                     entry -> {
-                        for (String p: patter) {
+                        for (String p: pattern) {
                             if (entry.getFileName().toString().matches(p)) {
                                 return true;
                             }
@@ -136,5 +134,51 @@ public class Drivers {
             log.info("clear remove " + i + " files");
         }
         log.info("clear end");
+    }
+
+    /**
+     * Метод возвращает список файлов для загрузки их информации в базу
+     * @param filePath путь к папке
+     * @param date дата начала
+     * @param pattern паттерн поиска файлов
+     * @return список файлов
+     */
+    public static List<FileData> getFilesForLoad(String filePath, LocalDateTime date, List<String> pattern) {
+        List<FileData> result = new ArrayList<>();
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
+                entry -> {
+                    for (String p: pattern) {
+                        if (entry.getFileName().toString().matches(p)) {
+                            try {
+                                String fileName = entry.getFileName().toString();
+                                LocalDateTime dateTimeTemp = LocalDateTime.parse(fileName.substring(fileName.length() - 11),
+                                        DATE_FORMAT);
+                                if (date != null) {
+                                    return dateTimeTemp.isAfter(date);
+                                } else {
+                                    return true;
+                                }
+                            } catch(DateTimeParseException e) {
+                                return false;
+                            }
+                        }
+                    }
+                    return false;
+                })) {
+
+            stream.forEach(path -> {
+                String fileName = path.getFileName().toString();
+                LocalDateTime dateTimeTemp = LocalDateTime.parse(fileName.substring(fileName.length() - 11),
+                        DATE_FORMAT);
+                result.add(new FileData(path, dateTimeTemp));
+            });
+
+            Collections.sort(result);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return result;
     }
 }
