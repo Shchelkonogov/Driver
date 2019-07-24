@@ -83,7 +83,7 @@ public class LoadObjectDataSBean {
                     stmGetStartDate.setInt(2, resLinked.getInt(3));
                     stmGetStartDate.setInt(3, resLinked.getInt(4));
 
-                    startDate = LocalDateTime.now().minusDays(40).truncatedTo(ChronoUnit.HOURS);
+                    startDate = null;
 
                     resStartDate = stmGetStartDate.executeQuery();
                     while (resStartDate.next()) {
