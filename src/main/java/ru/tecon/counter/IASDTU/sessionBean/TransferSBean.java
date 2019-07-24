@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -81,6 +82,10 @@ public class TransferSBean implements TransferBLocal {
             stm.setFetchSize(10000);
 
             for (DataModel item: params) {
+                if (item.getStartTime() == null) {
+                    item.setStartTime(LocalDateTime.now().minusDays(40).truncatedTo(ChronoUnit.HOURS));
+                }
+
                 stm.setString(1, objectName.replace(PRE_OBJECT_NAME, ""));
                 stm.setString(2, item.getParamName());
                 stm.setString(3, item.getStartTime().plusHours(3).format(FORMAT) + ":00");
