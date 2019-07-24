@@ -5,6 +5,7 @@ import ru.tecon.counter.util.DriverLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.util.Drivers;
+import ru.tecon.counter.util.FileData;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -15,8 +16,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.*;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -26,9 +25,9 @@ public class Driver implements Counter {
 
     private static final Logger LOG = Logger.getLogger(Driver.class.getName());
 
-    private String url;
+    private static final List<String> PATTERN = Arrays.asList("\\d{4}a\\d{8}-\\d{2}", "ans-\\d{8}-\\d{2}");
 
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HH");
+    private String url;
 
     private Long accumulatedTime;
 
@@ -93,52 +92,38 @@ public class Driver implements Counter {
 
     @Override
     public List<String> getObjects() {
-        List<String> objects = Drivers.scan(url, Arrays.asList("\\d{4}a\\d{8}-\\d{2}", "ans-\\d{8}-\\d{2}"));
+        List<String> objects = Drivers.scan(url, PATTERN);
         return objects.stream().map(e -> e = "МСТ-20-" + e).collect(Collectors.toList());
     }
 
     @Override
     public void clear() {
-        Drivers.clear(this, url, Arrays.asList("\\d{4}a\\d{8}-\\d{2}", "ans-\\d{8}-\\d{2}"));
+        Drivers.clear(this, url, PATTERN);
     }
 
     @Override
     public void loadData(List<DataModel> params, String objectName) {
+        LOG.info("loadData start " + objectName);
+
         Collections.sort(params);
+
+        LocalDateTime date = params.get(0).getStartTime();
 
         String counterNumber = objectName.substring(objectName.length() - 4);
         String filePath = url + "/" + counterNumber.substring(0, 2) + "/" + counterNumber + "/";
 
-        LocalDateTime date = params.get(0).getStartTime();
-        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS).minusHours(3);
-
         Class<?> cl = this.getClass();
         Map<String, String> methodsMap = this.getMethodsMap();
 
-        List<String> filesList = new ArrayList<>();
-        while (date.isBefore(now)) {
-            filesList.clear();
-            LocalDateTime finalDate = date;
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
-                    entry -> entry.getFileName().toString().matches("ans-" + finalDate.format(DATE_FORMAT))
-                            || entry.getFileName().toString().matches(counterNumber + "a" + finalDate.format(DATE_FORMAT)))) {
-                stream.forEach(e -> {
-                    if (!Files.isDirectory(e)) {
-                        filesList.add(e.toString());
-                    }
-                });
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        List<FileData> fileData = Drivers.getFilesForLoad(filePath, date, PATTERN);
 
+        for (FileData fData: fileData) {
             try {
-                for (String entry: filesList) {
-                    LOG.info("Driver.loadData read file: " + entry);
-
-                    readFile(entry);
+                if (Files.exists(fData.getPath())) {
+                    readFile(fData.getPath().toString());
 
                     for (DataModel model: params) {
-                        if (!date.isBefore(model.getStartTime())) {
+                        if (model.getStartTime() == null || !fData.getDateTime().isBefore(model.getStartTime())) {
                             try {
                                 String mName = methodsMap.get(model.getParamName());
                                 if (Objects.nonNull(mName)) {
@@ -147,10 +132,10 @@ public class Driver implements Counter {
                                         continue;
                                     }
                                     if (value instanceof Long) {
-                                        model.addData(new ValueModel(Long.toString((Long) value), date));
+                                        model.addData(new ValueModel(Long.toString((Long) value), fData.getDateTime()));
                                     } else {
                                         if (value instanceof Float) {
-                                            model.addData(new ValueModel(Float.toString((Float) value), date));
+                                            model.addData(new ValueModel(Float.toString((Float) value), fData.getDateTime()));
                                         }
                                     }
                                 }
@@ -161,14 +146,15 @@ public class Driver implements Counter {
                     }
                 }
             } catch (DriverLoadException e) {
-                LOG.warning(e.getMessage());
+                LOG.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
                 if (e.getMessage().equals("IOException")) {
+                    LOG.warning("loadData end error " + objectName);
                     return;
                 }
             }
-
-            date = date.plusHours(1);
         }
+
+        LOG.info("loadData end " + objectName);
     }
 
     /**
