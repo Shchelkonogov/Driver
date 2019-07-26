@@ -107,10 +107,10 @@ public class Driver implements Counter {
 
         Collections.sort(params);
 
-        LocalDateTime date = params.get(0).getStartTime();
-
         String counterNumber = objectName.substring(objectName.length() - 4);
         String filePath = url + "/" + counterNumber.substring(0, 2) + "/" + counterNumber + "/";
+
+        LocalDateTime date = params.get(0).getStartTime() == null ? null : params.get(0).getStartTime().minusHours(1);
 
         Class<?> cl = this.getClass();
         Map<String, String> methodsMap = this.getMethodsMap();
@@ -123,7 +123,7 @@ public class Driver implements Counter {
                     readFile(fData.getPath().toString());
 
                     for (DataModel model: params) {
-                        if (model.getStartTime() == null || !fData.getDateTime().isBefore(model.getStartTime())) {
+                        if (model.getStartTime() == null || fData.getDateTime().isAfter(model.getStartTime().minusHours(1))) {
                             try {
                                 String mName = methodsMap.get(model.getParamName());
                                 if (Objects.nonNull(mName)) {
