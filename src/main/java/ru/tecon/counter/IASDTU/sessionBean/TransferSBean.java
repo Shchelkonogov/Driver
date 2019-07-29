@@ -30,7 +30,7 @@ public class TransferSBean implements TransferBLocal {
     private static final String SQL_DATA = "select VACValue, convert(varchar, VACtimestamp, 120) from bas_ValuesAvgCalc " +
             "where linkID = (select LinkID from ParametersLibraryDisp " +
             "where station = ? and name = ?) " +
-            "and VACtimestamp >= convert(DATETIME, ?) " +
+            "and VACtimestamp > convert(DATETIME, ?) " +
             "order by VACtimestamp";
 
     private static final String PRE_OBJECT_NAME = "ИАСДТУ_";
