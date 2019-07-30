@@ -59,6 +59,8 @@ public class Driver implements Counter {
     private Float g2d;
     private Float gpd;
 
+    private int quality = 192;
+
     private String url;
 
     public Driver() {
@@ -119,13 +121,13 @@ public class Driver implements Counter {
                                         continue;
                                     }
                                     if (value instanceof Long) {
-                                        model.addData(new ValueModel(Long.toString((Long) value), fData.getDateTime().minusHours(3)));
+                                        model.addData(new ValueModel(Long.toString((Long) value), fData.getDateTime().minusHours(3), quality));
                                     } else {
                                         if (value instanceof Float) {
-                                            model.addData(new ValueModel(Float.toString((Float) value), fData.getDateTime().minusHours(3)));
+                                            model.addData(new ValueModel(Float.toString((Float) value), fData.getDateTime().minusHours(3), quality));
                                         } else {
                                             if (value instanceof String) {
-                                                model.addData(new ValueModel((String) value, fData.getDateTime().minusHours(3)));
+                                                model.addData(new ValueModel((String) value, fData.getDateTime().minusHours(3), quality));
                                             }
                                         }
                                     }
@@ -197,6 +199,12 @@ public class Driver implements Counter {
                     .parse(createDate(Arrays.copyOfRange(buffer, 40, 46)), FORMATTER)
                     .plusHours(3)
                     .format(FORMATTER);
+
+            if ((((buffer[47] & 0xff) << 8) | (buffer[46] & 0xff)) != Drivers.computeCrc16(Arrays.copyOfRange(buffer, 0 , 46))) {
+                quality = 0;
+            }
+//            System.out.println("crc: " + Integer.toHexString(((buffer[47] & 0xff) << 8) | (buffer[46] & 0xff)));
+//            System.out.println("calculate crc: " + Integer.toHexString(Drivers.computeCrc16(Arrays.copyOfRange(buffer, 0 , 46))));
         } catch (IOException e) {
             e.printStackTrace();
             throw new DriverLoadException("IOException");
