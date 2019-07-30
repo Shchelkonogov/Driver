@@ -74,6 +74,8 @@ public class Driver implements Counter {
     private Long[] accumulatedWorkingTimeQ = new Long[3];
     private Float[] accumulatedWaterHeatZone = new Float[3];
 
+    private int quality = 192;
+
     public Driver() {
         try {
             Context ctx = new InitialContext();
@@ -132,10 +134,10 @@ public class Driver implements Counter {
                                         continue;
                                     }
                                     if (value instanceof Long) {
-                                        model.addData(new ValueModel(Long.toString((Long) value), fData.getDateTime()));
+                                        model.addData(new ValueModel(Long.toString((Long) value), fData.getDateTime(), quality));
                                     } else {
                                         if (value instanceof Float) {
-                                            model.addData(new ValueModel(Float.toString((Float) value), fData.getDateTime()));
+                                            model.addData(new ValueModel(Float.toString((Float) value), fData.getDateTime(), quality));
                                         }
                                     }
                                 }
@@ -469,6 +471,16 @@ public class Driver implements Counter {
             LOG.warning("Driver.load3 Ошибка в коде не соответствуют индексы");
             throw new DriverLoadException("Driver.load3 Ошибка в коде не соответствуют индексы");
         }
+
+        byte[] crcBuffer = new byte[886];
+        crcBuffer[0] = 0x04;
+        System.arraycopy(buffer, 0, crcBuffer, 1, 885);
+        if ((((buffer[886] & 0xff) << 8) | (buffer[885] & 0xff)) != Drivers.computeCrc16(crcBuffer)) {
+            quality = 0;
+        }
+
+//        System.out.println("crc: " + Integer.toHexString(((buffer[886] & 0xff) << 8) | (buffer[885] & 0xff)));
+//        System.out.println("calculate crc: " + Integer.toHexString(Drivers.computeCrc16(crcBuffer)));
         return recordNumber;
     }
 
