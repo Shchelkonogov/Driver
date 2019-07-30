@@ -50,7 +50,7 @@ public class UploadObjectDataSBean {
                             .atZone(ZoneId.systemDefault())
                             .toInstant().toEpochMilli());
 
-                    Object[] row = {item.getObjectId(), item.getParamId(), item.getAggrId(), value.getValue(), 192, date, null};
+                    Object[] row = {item.getObjectId(), item.getParamId(), item.getAggrId(), value.getValue(), value.getQuality(), date, null};
                     Struct str = connect.createStruct("T_DZ_UTIL_INPUT_DATA_ROW", row);
                     dataList.add(str);
                 }
