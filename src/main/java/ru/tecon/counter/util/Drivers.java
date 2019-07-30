@@ -217,6 +217,11 @@ public class Drivers {
         return result;
     }
 
+    /**
+     * Алгоритм расчета crc-16/modbus
+     * @param data массив байтов
+     * @return crc-16/modbus
+     */
     public static Integer computeCrc16(byte[] data) {
         int crc = 0xffff;
         for (byte b : data) {
