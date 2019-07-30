@@ -17,6 +17,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.nio.file.*;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -25,6 +26,8 @@ import java.util.stream.Stream;
 public class Driver implements Counter {
 
     private static Logger log = Logger.getLogger(Driver.class.getName());
+
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
     private static final List<String> PATTERN = Collections.singletonList("\\d{4}s\\d{8}-\\d{2}");
 
@@ -190,7 +193,10 @@ public class Driver implements Counter {
 
             timeTs = createDate(Arrays.copyOfRange(buffer, 34, 40));
 
-            timeUspd = createDate(Arrays.copyOfRange(buffer, 40, 46));
+            timeUspd = LocalDateTime
+                    .parse(createDate(Arrays.copyOfRange(buffer, 40, 46)), FORMATTER)
+                    .plusHours(3)
+                    .format(FORMATTER);
         } catch (IOException e) {
             e.printStackTrace();
             throw new DriverLoadException("IOException");
