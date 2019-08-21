@@ -69,7 +69,7 @@ public class UploadObjectDataSBean {
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            LOG.warning("UploadObjectDataSBean.putData error upload: " + paramList);
+            LOG.warning("UploadObjectDataSBean.putData error upload: " + e.getMessage() + " " + paramList);
         }
         return null;
     }
