@@ -29,11 +29,11 @@ public class Driver implements Counter {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
-    private static final List<String> PATTERN = Collections.singletonList("\\d{4}s\\d{8}-\\d{2}");
+    private static final List<String> PATTERN = Arrays.asList("\\d{4}s\\d{8}-\\d{2}", "\\d{4}e\\d{8}-\\d{2}");
 
     private Float pti;
     private Float ptd;
-    private Long time0;
+    private Float time0;
     private Long time1;
     private Long time2;
     private Long time3;
@@ -109,7 +109,7 @@ public class Driver implements Counter {
         for (FileData fData: fileData) {
             try {
                 if (Files.exists(fData.getPath())) {
-                    readFile(fData.getPath().toString());
+                    readFile(fData.getPath());
 
                     for (DataModel model: params) {
                         if (model.getStartTime() == null || fData.getDateTime().isAfter(model.getStartTime().plusHours(2))) {
@@ -166,9 +166,20 @@ public class Driver implements Counter {
         return result;
     }
 
-    private void readFile(String path) throws DriverLoadException {
-        log.info("Driver.readFile start read: " + path);
-        try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(Paths.get(path),
+    private void readFile(Path path) throws DriverLoadException {
+        String fileName = path.getFileName().toString();
+        if (fileName.matches(PATTERN.get(0))) {
+            readFileNormal(path);
+        } else {
+            if (fileName.matches(PATTERN.get(1))) {
+                readFileExtend(path);
+            }
+        }
+    }
+
+    private void readFileNormal(Path path) throws DriverLoadException {
+        log.info("Driver.readFileNormal start read: " + path);
+        try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(path,
                 StandardOpenOption.READ))) {
             int bufferSize = 49;
             byte[] buffer = new byte[bufferSize];
@@ -185,13 +196,7 @@ public class Driver implements Counter {
 //            System.out.println("min " + (((buffer[8] & 0xff) >> 4) * 10 + (buffer[8] & 0x0f)));
 //            System.out.println("sec " + (((buffer[9] & 0xff) >> 4) * 10 + (buffer[9] & 0x0f)));
 
-            v1i = readFloat(Arrays.copyOfRange(buffer, 10, 14));
-            v2i = readFloat(Arrays.copyOfRange(buffer, 14, 18));
-            t1 = new BigDecimal(String.valueOf(((buffer[18] & 0xff) << 8) | (buffer[19] & 0xff)))
-                    .multiply(new BigDecimal("0.01")).floatValue();
-            t2 = new BigDecimal(String.valueOf(((buffer[20] & 0xff) << 8) | (buffer[21] & 0xff)))
-                    .multiply(new BigDecimal("0.01")).floatValue();
-            pti = readFloat(Arrays.copyOfRange(buffer, 30, 34));
+            readPath(buffer);
 
             timeTs = createDate(Arrays.copyOfRange(buffer, 34, 40));
 
@@ -209,6 +214,43 @@ public class Driver implements Counter {
             e.printStackTrace();
             throw new DriverLoadException("IOException");
         }
+    }
+
+    private void readFileExtend(Path path) throws DriverLoadException {
+        log.info("Driver.readFileExtend start read: " + path);
+        try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(path,
+                StandardOpenOption.READ))) {
+            int bufferSize = 49 + 32;
+            byte[] buffer = new byte[bufferSize];
+
+            checkData(inputStream, buffer, bufferSize);
+
+            readPath(buffer);
+
+            p1 = readFloat(Arrays.copyOfRange(buffer, 34, 38));
+            p2 = readFloat(Arrays.copyOfRange(buffer, 38, 42));
+            g1d = readFloat(Arrays.copyOfRange(buffer, 50, 54));
+            g2d = readFloat(Arrays.copyOfRange(buffer, 54, 58));
+
+            time0 = readFloat(Arrays.copyOfRange(buffer, 58, 62));
+
+            if ((((buffer[47 + 32] & 0xff) << 8) | (buffer[46 + 32] & 0xff)) != Drivers.computeCrc16(Arrays.copyOfRange(buffer, 0 , 46 + 32))) {
+                quality = 0;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new DriverLoadException("IOException");
+        }
+    }
+
+    private void readPath(byte[] buffer) {
+        v1i = readFloat(Arrays.copyOfRange(buffer, 10, 14));
+        v2i = readFloat(Arrays.copyOfRange(buffer, 14, 18));
+        t1 = new BigDecimal(String.valueOf(((buffer[18] & 0xff) << 8) | (buffer[19] & 0xff)))
+                .multiply(new BigDecimal("0.01")).floatValue();
+        t2 = new BigDecimal(String.valueOf(((buffer[20] & 0xff) << 8) | (buffer[21] & 0xff)))
+                .multiply(new BigDecimal("0.01")).floatValue();
+        pti = readFloat(Arrays.copyOfRange(buffer, 30, 34));
     }
 
     private void checkData(BufferedInputStream inputStream, byte[] buffer, int bufferSize)
@@ -264,7 +306,7 @@ public class Driver implements Counter {
 
     public void printData(String path) {
         try {
-            this.readFile(path);
+            this.readFile(Paths.get(path));
             System.out.println(this);
         } catch (DriverLoadException e) {
             log.warning(e.getMessage());
@@ -282,7 +324,7 @@ public class Driver implements Counter {
     }
 
     @SA94CounterParameter(name = SA94Config.TIME_0)
-    public Long getTime0() {
+    public Float getTime0() {
         return time0;
     }
 
@@ -409,6 +451,7 @@ public class Driver implements Counter {
     @Override
     public String toString() {
         return new StringJoiner(",\n", Driver.class.getSimpleName() + "[\n", "\n]")
+                .add("  Качаство: " + quality)
                 .add("  Количество теплоты нарастающим итогом: " + pti)
                 .add("  Количество теплоты за время: " + ptd)
                 .add("  Нарастающее время в состоянии 0: " + time0)
