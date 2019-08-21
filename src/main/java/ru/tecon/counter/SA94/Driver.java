@@ -229,8 +229,8 @@ public class Driver implements Counter {
 
             p1 = readFloat(Arrays.copyOfRange(buffer, 34, 38));
             p2 = readFloat(Arrays.copyOfRange(buffer, 38, 42));
-            g1d = readFloat(Arrays.copyOfRange(buffer, 50, 54));
-            g2d = readFloat(Arrays.copyOfRange(buffer, 54, 58));
+            g1i = readFloat(Arrays.copyOfRange(buffer, 50, 54));
+            g2i = readFloat(Arrays.copyOfRange(buffer, 54, 58));
 
             time0 = readFloat(Arrays.copyOfRange(buffer, 58, 62));
 
