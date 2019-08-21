@@ -224,7 +224,7 @@ public class Driver implements Counter {
         }
 
 //        if ((((buffer[1] & 0x04) >> 2) != 0) || ((buffer[1] >> 3) != 1)) {
-        if ((buffer[1] >> 3) != 1) {
+        if (((buffer[1] & 0x0f) >> 3) != 1) {
             log.warning("checkData Ошибка в valid");
             throw new DriverLoadException("checkData Ошибка в valid");
         }
