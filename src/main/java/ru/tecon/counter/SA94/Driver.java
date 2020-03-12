@@ -19,6 +19,7 @@ import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -181,10 +182,10 @@ public class Driver implements Counter {
         log.info("Driver.readFileNormal start read: " + path);
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(path,
                 StandardOpenOption.READ))) {
-            int bufferSize = 49;
+            int bufferSize = 53;
             byte[] buffer = new byte[bufferSize];
 
-            checkData(inputStream, buffer, bufferSize);
+            checkData(inputStream, buffer, bufferSize, true);
 
 //            System.out.println("time in SA archive:");
 //
@@ -196,16 +197,16 @@ public class Driver implements Counter {
 //            System.out.println("min " + (((buffer[8] & 0xff) >> 4) * 10 + (buffer[8] & 0x0f)));
 //            System.out.println("sec " + (((buffer[9] & 0xff) >> 4) * 10 + (buffer[9] & 0x0f)));
 
-            readPath(buffer);
+            readPath(Arrays.copyOfRange(buffer, 20, 20 + 32));
 
-            timeTs = createDate(Arrays.copyOfRange(buffer, 34, 40));
+            timeTs = createDate(Arrays.copyOfRange(buffer, 8, 14));
 
             timeUspd = LocalDateTime
-                    .parse(createDate(Arrays.copyOfRange(buffer, 40, 46)), FORMATTER)
+                    .parse(createDate(Arrays.copyOfRange(buffer, 2, 8)), FORMATTER)
                     .plusHours(3)
                     .format(FORMATTER);
 
-            if ((((buffer[47] & 0xff) << 8) | (buffer[46] & 0xff)) != Drivers.computeCrc16(Arrays.copyOfRange(buffer, 0 , 46))) {
+            if ((((buffer[1] & 0xff) << 8) | (buffer[0] & 0xff)) != Drivers.computeCrc16(Arrays.copyOfRange(buffer, 2 , 52))) {
                 quality = 0;
             }
 //            System.out.println("crc: " + Integer.toHexString(((buffer[47] & 0xff) << 8) | (buffer[46] & 0xff)));
@@ -220,21 +221,21 @@ public class Driver implements Counter {
         log.info("Driver.readFileExtend start read: " + path);
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(path,
                 StandardOpenOption.READ))) {
-            int bufferSize = 49 + 32;
+            int bufferSize = 53 + 32;
             byte[] buffer = new byte[bufferSize];
 
-            checkData(inputStream, buffer, bufferSize);
+            checkData(inputStream, buffer, bufferSize, false);
 
-            readPath(buffer);
+            readPath(Arrays.copyOfRange(buffer, 20, 20 + 32));
 
-            p1 = readFloat(Arrays.copyOfRange(buffer, 34, 38));
-            p2 = readFloat(Arrays.copyOfRange(buffer, 38, 42));
-            g1i = readFloat(Arrays.copyOfRange(buffer, 50, 54));
-            g2i = readFloat(Arrays.copyOfRange(buffer, 54, 58));
+            p1 = readFloat(Arrays.copyOfRange(buffer, 52, 56));
+            p2 = readFloat(Arrays.copyOfRange(buffer, 56, 60));
+            g1i = readFloat(Arrays.copyOfRange(buffer, 68, 72));
+            g2i = readFloat(Arrays.copyOfRange(buffer, 72, 76));
 
-            time0 = readFloat(Arrays.copyOfRange(buffer, 58, 62));
+            time0 = readFloat(Arrays.copyOfRange(buffer, 76, 80));
 
-            if ((((buffer[47 + 32] & 0xff) << 8) | (buffer[46 + 32] & 0xff)) != Drivers.computeCrc16(Arrays.copyOfRange(buffer, 0 , 46 + 32))) {
+            if ((((buffer[1] & 0xff) << 8) | (buffer[0] & 0xff)) != Drivers.computeCrc16(Arrays.copyOfRange(buffer, 2, 52 + 32))) {
                 quality = 0;
             }
         } catch (IOException e) {
@@ -244,16 +245,16 @@ public class Driver implements Counter {
     }
 
     private void readPath(byte[] buffer) {
-        v1i = readFloat(Arrays.copyOfRange(buffer, 10, 14));
-        v2i = readFloat(Arrays.copyOfRange(buffer, 14, 18));
-        t1 = new BigDecimal(String.valueOf(((buffer[18] & 0xff) << 8) | (buffer[19] & 0xff)))
+        v1i = readFloat(Arrays.copyOfRange(buffer, 8, 12));
+        v2i = readFloat(Arrays.copyOfRange(buffer, 12, 16));
+        t1 = new BigDecimal(String.valueOf(((buffer[16] & 0xff) << 8) | (buffer[17] & 0xff)))
                 .multiply(new BigDecimal("0.01")).floatValue();
-        t2 = new BigDecimal(String.valueOf(((buffer[20] & 0xff) << 8) | (buffer[21] & 0xff)))
+        t2 = new BigDecimal(String.valueOf(((buffer[18] & 0xff) << 8) | (buffer[19] & 0xff)))
                 .multiply(new BigDecimal("0.01")).floatValue();
-        pti = readFloat(Arrays.copyOfRange(buffer, 30, 34));
+        pti = readFloat(Arrays.copyOfRange(buffer, 28, 32));
     }
 
-    private void checkData(BufferedInputStream inputStream, byte[] buffer, int bufferSize)
+    private void checkData(BufferedInputStream inputStream, byte[] buffer, int bufferSize, boolean standardArchive)
             throws DriverLoadException, IOException {
         if (inputStream.available() < bufferSize) {
             log.warning("checkData Ошибка в данных");
@@ -266,9 +267,14 @@ public class Driver implements Counter {
         }
 
 //        if ((((buffer[1] & 0x04) >> 2) != 0) || ((buffer[1] >> 3) != 1)) {
-        if (((buffer[1] & 0x0f) >> 3) != 1) {
-            log.warning("checkData Ошибка в valid");
-            throw new DriverLoadException("checkData Ошибка в valid");
+        if (standardArchive) {
+            if (((buffer[1] & 0x0f) >> 3) != 1) {
+                throw new DriverLoadException("Ошибка в valid standard SA94 archive");
+            }
+        } else {
+            if (((buffer[1] & 0x10) >> 4) != 1) {
+                throw new DriverLoadException("Ошибка в valid extended SA94 archive");
+            }
         }
 
         if ((buffer[bufferSize - 1] & 0xff) != 10) {
@@ -309,7 +315,7 @@ public class Driver implements Counter {
             this.readFile(Paths.get(path));
             System.out.println(this);
         } catch (DriverLoadException e) {
-            log.warning(e.getMessage());
+            log.log(Level.WARNING, "DriverLOadException", e);
         }
     }
 
