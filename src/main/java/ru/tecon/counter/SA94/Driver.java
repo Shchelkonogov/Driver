@@ -228,6 +228,13 @@ public class Driver implements Counter {
 
             readPath(Arrays.copyOfRange(buffer, 20, 20 + 32));
 
+            timeTs = createDate(Arrays.copyOfRange(buffer, 8, 14));
+
+            timeUspd = LocalDateTime
+                    .parse(createDate(Arrays.copyOfRange(buffer, 2, 8)), FORMATTER)
+                    .plusHours(3)
+                    .format(FORMATTER);
+
             p1 = readFloat(Arrays.copyOfRange(buffer, 52, 56));
             p2 = readFloat(Arrays.copyOfRange(buffer, 56, 60));
             g1i = readFloat(Arrays.copyOfRange(buffer, 68, 72));
