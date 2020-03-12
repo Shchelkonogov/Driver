@@ -17,7 +17,8 @@ public class AppConfigSBean {
     private static final Map<String, String> countersMap = Stream.of(new String[][] {
             {"MCT-20", "ru.tecon.counter.MCT20.Driver"},
             {"IASDTU", "ru.tecon.counter.IASDTU.Driver"},
-            {"MCT-20-SA94", "ru.tecon.counter.SA94.Driver"}})
+            {"MCT-20-SA94", "ru.tecon.counter.SA94.Driver"},
+            {"MCT-20-VIST", "ru.tecon.counter.VIST.Driver"}})
             .collect(Collectors.toMap(data -> data[0], data -> data[1]));
 
     /**
