@@ -100,7 +100,7 @@ public class Driver implements Counter {
         String counterNumber = objectName.substring(objectName.length() - 4);
         String filePath = url + "/" + counterNumber.substring(0, 2) + "/" + counterNumber + "/";
 
-        LocalDateTime date = params.get(0).getStartTime() == null ? null : params.get(0).getStartTime().plusHours(2);
+        LocalDateTime date = params.get(0).getStartTime() == null ? null : params.get(0).getStartTime().minusHours(1);
 
         Class<?> cl = this.getClass();
         Map<String, String> methodsMap = this.getMethodsMap();
@@ -113,7 +113,7 @@ public class Driver implements Counter {
                     readFile(fData.getPath());
 
                     for (DataModel model: params) {
-                        if (model.getStartTime() == null || fData.getDateTime().isAfter(model.getStartTime().plusHours(2))) {
+                        if (model.getStartTime() == null || fData.getDateTime().isAfter(model.getStartTime().minusHours(1))) {
                             try {
                                 String mName = methodsMap.get(model.getParamName());
                                 if (Objects.nonNull(mName)) {
@@ -122,13 +122,13 @@ public class Driver implements Counter {
                                         continue;
                                     }
                                     if (value instanceof Long) {
-                                        model.addData(new ValueModel(Long.toString((Long) value), fData.getDateTime().minusHours(3), quality));
+                                        model.addData(new ValueModel(Long.toString((Long) value), fData.getDateTime(), quality));
                                     } else {
                                         if (value instanceof Float) {
-                                            model.addData(new ValueModel(Float.toString((Float) value), fData.getDateTime().minusHours(3), quality));
+                                            model.addData(new ValueModel(Float.toString((Float) value), fData.getDateTime(), quality));
                                         } else {
                                             if (value instanceof String) {
-                                                model.addData(new ValueModel((String) value, fData.getDateTime().minusHours(3), quality));
+                                                model.addData(new ValueModel((String) value, fData.getDateTime(), quality));
                                             }
                                         }
                                     }
