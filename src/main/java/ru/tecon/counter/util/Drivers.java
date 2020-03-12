@@ -179,6 +179,21 @@ public class Drivers {
      * @return список файлов
      */
     public static List<FileData> getFilesForLoad(String filePath, LocalDateTime date, List<String> pattern) {
+        return getFilesForLoad(filePath, date, pattern, "yyyyMMdd-HH");
+    }
+
+    /**
+     * Метод возвращает список файлов для загрузки их информации в базу
+     * @param filePath путь к папке
+     * @param date дата начала
+     * @param pattern паттерн поиска файлов
+     * @param dateFormat формат для разбора даты в имени файла
+     * @return список файлов
+     */
+    public static List<FileData> getFilesForLoad(String filePath, LocalDateTime date, List<String> pattern,
+                                                 String dateFormat) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateFormat);
+
         List<FileData> result = new ArrayList<>();
 
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
@@ -187,8 +202,8 @@ public class Drivers {
                         if (entry.getFileName().toString().matches(p)) {
                             try {
                                 String fileName = entry.getFileName().toString();
-                                LocalDateTime dateTimeTemp = LocalDateTime.parse(fileName.substring(fileName.length() - 11),
-                                        DATE_FORMAT);
+                                LocalDateTime dateTimeTemp = LocalDateTime.parse(fileName.substring(fileName.length() - dateFormat.length()),
+                                        formatter);
                                 if (date != null) {
                                     return dateTimeTemp.isAfter(date);
                                 } else {
@@ -204,8 +219,8 @@ public class Drivers {
 
             stream.forEach(path -> {
                 String fileName = path.getFileName().toString();
-                LocalDateTime dateTimeTemp = LocalDateTime.parse(fileName.substring(fileName.length() - 11),
-                        DATE_FORMAT);
+                LocalDateTime dateTimeTemp = LocalDateTime.parse(fileName.substring(fileName.length() - dateFormat.length()),
+                        formatter);
                 result.add(new FileData(path, dateTimeTemp));
             });
 
