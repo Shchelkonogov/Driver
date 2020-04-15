@@ -22,6 +22,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -407,13 +408,15 @@ public class Driver implements Counter {
         } catch (IOException e) {
             log.log(Level.WARNING, "read file error", e);
             throw new DriverLoadException("IOException");
+        } catch (DateTimeParseException e) {
+            throw new DriverLoadException("parse data Exception");
         }
     }
 
     private String createDate(byte[] buffer) {
         return createStringValue(buffer[2]) +
                 createStringValue(buffer[1]) +
-                ((buffer[0] & 0xff) < 95 ? ("20" + (buffer[0] & 0xff)) : ("19" + (buffer[0] & 0xff))) +
+                ((buffer[0] & 0xff) < 95 ? ("20" + createStringValue(buffer[0])) : ("19" + createStringValue(buffer[0]))) +
                 createStringValue(buffer[3]) +
                 createStringValue(buffer[4]) +
                 createStringValue(buffer[5]);
