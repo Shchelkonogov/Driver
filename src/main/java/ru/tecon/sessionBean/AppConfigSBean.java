@@ -19,7 +19,8 @@ public class AppConfigSBean {
 //            {"IASDTU", "ru.tecon.counter.IASDTU.Driver"},
             {"MCT-20-SA94", "ru.tecon.counter.SA94.Driver"},
             {"MCT-20-VIST", "ru.tecon.counter.VIST.Driver"},
-            {"MCT-20-TEROS", "ru.tecon.counter.TEROS.Driver"}})
+            {"MCT-20-TEROS", "ru.tecon.counter.TEROS.Driver"},
+            {"MCT-20-SLAVE", "ru.tecon.counter.MCT20_SLAVE.Driver"}})
             .collect(Collectors.toMap(data -> data[0], data -> data[1]));
 
     /**
