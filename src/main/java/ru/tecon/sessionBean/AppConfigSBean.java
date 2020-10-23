@@ -1,5 +1,7 @@
 package ru.tecon.sessionBean;
 
+import ru.tecon.counter.util.ServerNames;
+
 import javax.ejb.Singleton;
 import javax.ejb.Startup;
 import java.util.Map;
@@ -15,12 +17,12 @@ import java.util.stream.Stream;
 public class AppConfigSBean {
 
     private static final Map<String, String> countersMap = Stream.of(new String[][] {
-            {"MCT-20", "ru.tecon.counter.MCT20.Driver"},
-//            {"IASDTU", "ru.tecon.counter.IASDTU.Driver"},
-            {"MCT-20-SA94", "ru.tecon.counter.SA94.Driver"},
-            {"MCT-20-VIST", "ru.tecon.counter.VIST.Driver"},
-            {"MCT-20-TEROS", "ru.tecon.counter.TEROS.Driver"},
-            {"MCT-20-SLAVE", "ru.tecon.counter.MCT20_SLAVE.Driver"}})
+//            {"IASDTU", "ru.tecon.counter.IASDTU.Driver"}})
+            {ServerNames.MCT_20, "ru.tecon.counter.MCT20.Driver"},
+            {ServerNames.MCT_20_SA94, "ru.tecon.counter.SA94.Driver"},
+            {ServerNames.MCT_20_VIST, "ru.tecon.counter.VIST.Driver"},
+            {ServerNames.MCT_20_TEROS, "ru.tecon.counter.TEROS.Driver"},
+            {ServerNames.MCT_20_SLAVE, "ru.tecon.counter.MCT20_SLAVE.Driver"}})
             .collect(Collectors.toMap(data -> data[0], data -> data[1]));
 
     /**
