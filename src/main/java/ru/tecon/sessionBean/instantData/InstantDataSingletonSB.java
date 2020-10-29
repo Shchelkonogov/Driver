@@ -3,6 +3,7 @@ package ru.tecon.sessionBean.instantData;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
 import oracle.jdbc.dcn.DatabaseChangeRegistration;
+import oracle.jdbc.dcn.QueryChangeDescription;
 import oracle.jdbc.dcn.RowChangeDescription;
 import oracle.jdbc.dcn.TableChangeDescription;
 import ru.tecon.counter.util.ServerNames;
@@ -55,12 +56,14 @@ public class InstantDataSingletonSB {
             dcr = connect.registerDatabaseChangeNotification(prop);
 
             dcr.addListener(e -> {
-                for (TableChangeDescription tableDescription: e.getTableChangeDescription()) {
-                    if (tableDescription.getTableName().equals("ADMIN.ARM_TECON_COMMANDS")) {
-                        for (RowChangeDescription rowDescription: tableDescription.getRowChangeDescription()) {
-                            if (rowDescription.getRowOperation() == RowChangeDescription.RowOperation.INSERT) {
-                                LOG.info("instant data load request: " + rowDescription.getRowid());
-                                instantData.initLoadInstantData(rowDescription.getRowid().stringValue());
+                for (QueryChangeDescription queryDescription: e.getQueryChangeDescription()) {
+                    for (TableChangeDescription tableDescription: queryDescription.getTableChangeDescription()) {
+                        if (tableDescription.getTableName().equals("ADMIN.ARM_TECON_COMMANDS")) {
+                            for (RowChangeDescription rowDescription: tableDescription.getRowChangeDescription()) {
+                                if (rowDescription.getRowOperation() == RowChangeDescription.RowOperation.INSERT) {
+                                    LOG.info("instant data load request: " + rowDescription.getRowid());
+                                    instantData.initLoadInstantData(rowDescription.getRowid().stringValue());
+                                }
                             }
                         }
                     }
