@@ -31,7 +31,8 @@ public class InstantDataSingletonSB {
 
     private DatabaseChangeRegistration dcr;
 
-    private static final String DELETE_INSTANT_DATA_REQUEST = "delete from arm_tecon_commands where server_name not in (select * from table(?))";
+    private static final String DELETE_INSTANT_DATA_REQUEST = "delete from arm_tecon_commands " +
+            "where kind = 'AsyncRefresh' and server_name not in (select * from table(?))";
 
     @Resource(name = "jdbc/DataSource")
     private DataSource ds;
@@ -49,6 +50,7 @@ public class InstantDataSingletonSB {
             prop.setProperty(OracleConnection.DCN_NOTIFY_ROWIDS, "true");
             prop.setProperty(OracleConnection.DCN_IGNORE_DELETEOP, "true");
             prop.setProperty(OracleConnection.DCN_IGNORE_UPDATEOP, "true");
+            prop.setProperty(OracleConnection.DCN_QUERY_CHANGE_NOTIFICATION, "true");
 
             dcr = connect.registerDatabaseChangeNotification(prop);
 
@@ -68,7 +70,13 @@ public class InstantDataSingletonSB {
             try (Statement stm = connect.createStatement()) {
                 ((OracleStatement) stm).setDatabaseChangeRegistration(dcr);
 
-                stm.executeQuery("select server_name from arm_tecon_commands");
+                StringJoiner joiner = new StringJoiner(", ", "(", ")");
+                for (String name: ServerNames.SERVERS) {
+                    joiner.add("'" + name + "'");
+                }
+
+                stm.executeQuery("select server_name, kind from arm_tecon_commands " +
+                        "where kind = 'AsyncRefresh' and server_name in " + joiner);
 
                 for (String name: dcr.getTables()) {
                     LOG.info(name + " is part of the registration.");

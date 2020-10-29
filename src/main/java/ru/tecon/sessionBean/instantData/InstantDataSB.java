@@ -32,7 +32,7 @@ public class InstantDataSB {
 
     private static final Pattern PATTERN = Pattern.compile(".*-(?<item>\\d{4})$");
 
-    private static final String SQL_GET_ASYNC_REQUEST = "select opc_id, server_name, obj_name " +
+    private static final String SQL_GET_ASYNC_REQUEST = "select opc_id, server_name, obj_name, kind " +
             "from arm_tecon_commands where rowid = ?";
 
     private static final String SQL_GET_LINKED_PARAMETERS_FOR_INSTANT_DATA = "select c.display_name || " +
@@ -92,6 +92,10 @@ public class InstantDataSB {
 
             ResultSet res = stm.executeQuery();
             if (res.next()) {
+                if (!res.getString(4).equals("AsyncRefresh")) {
+                    return;
+                }
+
                 if (ServerNames.SERVERS.contains(res.getString(2))) {
                     serverName = res.getString(2);
                 } else {
