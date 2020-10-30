@@ -2,8 +2,8 @@ package ru.tecon.sessionBean.opcObjects;
 
 import ru.tecon.counter.Counter;
 import ru.tecon.counter.util.ServerNames;
-import ru.tecon.sessionBean.AppBean;
-import ru.tecon.sessionBean.AppConfigSBean;
+import ru.tecon.sessionBean.app.AppBean;
+import ru.tecon.sessionBean.app.AppSingletonBean;
 
 import javax.annotation.Resource;
 import javax.ejb.*;
@@ -36,7 +36,7 @@ public class OpcObjectBean {
     private DataSource ds;
 
     @EJB
-    private AppConfigSBean appConfigBean;
+    private AppSingletonBean appSingletonBean;
 
     @EJB
     private AppBean appBean;
@@ -81,25 +81,25 @@ public class OpcObjectBean {
             List<String> config;
 
             try {
-                Counter cl = (Counter) Class.forName(appConfigBean.get(serverName)).newInstance();
+                Counter cl = (Counter) Class.forName(appSingletonBean.get(serverName)).newInstance();
                 config = cl.getConfig(objectName);
             } catch (ClassNotFoundException | IllegalAccessException | InstantiationException ex) {
                 LOG.log(Level.WARNING, "server error", ex);
-                appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса получения данных");
+                appBean.updateCommand(0, rowID, "Error", "Ошибка сервиса получения данных");
                 return;
             }
 
             if (!config.isEmpty()) {
                 int result = opcObjectBean.insertConfig(config, opcObjectID, objectName);
                 if (result < 0) {
-                    appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса загрузки данных");
+                    appBean.updateCommand(0, rowID, "Error", "Ошибка сервиса загрузки данных");
                 } else {
-                    appBean.updateAsyncRefreshCommand(1, rowID, objectName,
+                    appBean.updateCommand(1, rowID, objectName,
                             "Получено " + result + " новых элементов по объекту '" + objectName + "'.");
                 }
             } else {
                 LOG.warning("Конфигурация отсутствует");
-                appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Конфигурация отсутствует");
+                appBean.updateCommand(0, rowID, "Error", "Конфигурация отсутствует");
             }
         } catch (SQLException ex) {
             LOG.log(Level.WARNING, "Ошибка обработки запроса", ex);

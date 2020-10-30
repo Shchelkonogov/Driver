@@ -1,4 +1,4 @@
-package ru.tecon.sessionBean;
+package ru.tecon.sessionBean.app;
 
 import ru.tecon.counter.util.ServerNames;
 
@@ -14,7 +14,7 @@ import java.util.stream.Stream;
  */
 @Startup
 @Singleton
-public class AppConfigSBean {
+public class AppSingletonBean {
 
     private static final Map<String, String> countersMap = Stream.of(new String[][] {
 //            {"IASDTU", "ru.tecon.counter.IASDTU.Driver"}})

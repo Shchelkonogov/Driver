@@ -5,8 +5,8 @@ import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.util.ServerNames;
-import ru.tecon.sessionBean.AppBean;
-import ru.tecon.sessionBean.AppConfigSBean;
+import ru.tecon.sessionBean.app.AppBean;
+import ru.tecon.sessionBean.app.AppSingletonBean;
 import ru.tecon.sessionBean.counterData.UploadObjectDataSBean;
 
 import javax.annotation.Resource;
@@ -62,7 +62,7 @@ public class InstantDataBean {
     private InstantDataBean instantDataBean;
 
     @EJB
-    private AppConfigSBean appConfigBean;
+    private AppSingletonBean appSingletonBean;
 
     @EJB
     private AppBean appBean;
@@ -116,19 +116,19 @@ public class InstantDataBean {
 
             if (!parameters.isEmpty()) {
                 try {
-                    Counter cl = (Counter) Class.forName(appConfigBean.get(serverName)).newInstance();
+                    Counter cl = (Counter) Class.forName(appSingletonBean.get(serverName)).newInstance();
                     cl.loadInstantData(parameters, item);
                 } catch (ClassNotFoundException | IllegalAccessException | InstantiationException ex) {
                     LOG.log(Level.WARNING, "server error", ex);
-                    appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса получения данных");
+                    appBean.updateCommand(0, rowID, "Error", "Ошибка сервиса получения данных");
                     return;
                 } catch (DriverDataLoadException ex) {
                     LOG.log(Level.WARNING, "instantDataException", ex);
-                    appBean.updateAsyncRefreshCommand(0, rowID, "Error", ex.getMessage());
+                    appBean.updateCommand(0, rowID, "Error", ex.getMessage());
                     return;
                 }
             } else {
-                appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Нет мгновенных параметров");
+                appBean.updateCommand(0, rowID, "Error", "Нет мгновенных параметров");
                 return;
             }
 
@@ -136,10 +136,10 @@ public class InstantDataBean {
             putDataBean.putData(parameters);
 
             if (count != -1) {
-                appBean.updateAsyncRefreshCommand(1, rowID, objectName,
+                appBean.updateCommand(1, rowID, objectName,
                         "Получено " + count + " значений из " + parameters.size() + " слинкованных параетров по объекту " + objectName);
             } else {
-                appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса загрузки данных");
+                appBean.updateCommand(0, rowID, "Error", "Ошибка сервиса загрузки данных");
             }
         } catch (SQLException ex) {
             LOG.log(Level.WARNING, "Ошибка обработки запроса", ex);
