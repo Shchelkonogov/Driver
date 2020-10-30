@@ -5,6 +5,7 @@ import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.util.ServerNames;
+import ru.tecon.sessionBean.AppBean;
 import ru.tecon.sessionBean.AppConfigSBean;
 import ru.tecon.sessionBean.counterData.UploadObjectDataSBean;
 
@@ -26,9 +27,9 @@ import java.util.regex.Pattern;
  * Stateless bean для работы с мгновенными значениями
  */
 @Stateless
-public class InstantDataSB {
+public class InstantDataBean {
 
-    private static final Logger LOG = Logger.getLogger(InstantDataSB.class.getName());
+    private static final Logger LOG = Logger.getLogger(InstantDataBean.class.getName());
 
     private static final Pattern PATTERN = Pattern.compile(".*-(?<item>\\d{4})$");
 
@@ -46,13 +47,6 @@ public class InstantDataSB {
             "where a.par_id = b.aspid_param_id and a.obj_id = b.aspid_object_id) " +
             "and b.aspid_agr_id is null";
 
-    private static final String UPDATE_ARM_TECON_COMMAND = "update arm_tecon_commands set is_success_execution = ?, " +
-            "result_description = ?, end_time = sys_extract_utc(current_timestamp) where rowid = ?";
-
-    private static final String UPDATE_ARM_COMMAND = "update arm_commands " +
-            "set is_success_execution = ?, result_description = ?, display_result_description = ?, " +
-            "end_time = sys_extract_utc(current_timestamp) where id = (select id from arm_tecon_commands where rowid = ?)";
-
     private static final String INSERT_ASYNC_REFRESH_DATA = "insert into arm_async_refresh_data " +
             "values (?, ?, sys_extract_utc(current_timestamp), ?, ?, " +
             "(select id from arm_tecon_commands where rowid = ?), current_timestamp, " +
@@ -61,17 +55,17 @@ public class InstantDataSB {
             "where aspid_object_id = ? and aspid_param_id = ? and aspid_agr_id is null)), " +
             "null)";
 
-    @Resource
-    private EJBContext context;
-
     @Resource(name = "jdbc/DataSource")
     private DataSource ds;
 
     @EJB
-    private InstantDataSB instantData;
+    private InstantDataBean instantDataBean;
 
     @EJB
-    private AppConfigSBean appBean;
+    private AppConfigSBean appConfigBean;
+
+    @EJB
+    private AppBean appBean;
 
     @EJB
     private UploadObjectDataSBean putDataBean;
@@ -89,6 +83,7 @@ public class InstantDataSB {
             String serverName = null;
             String item = null;
             String opcObjectID = null;
+            String objectName = null;
 
             ResultSet res = stm.executeQuery();
             if (res.next()) {
@@ -110,46 +105,41 @@ public class InstantDataSB {
                 }
 
                 opcObjectID = res.getString(1);
+                objectName = res.getString(3);
             }
 
             if ((serverName == null) || (item == null)) {
                 return;
             }
 
-            List<DataModel> parameters = instantData.loadObjectInstantParameters(opcObjectID);
+            List<DataModel> parameters = instantDataBean.loadObjectInstantParameters(opcObjectID);
 
             if (!parameters.isEmpty()) {
                 try {
-                    Counter cl = (Counter) Class.forName(appBean.get(serverName)).newInstance();
+                    Counter cl = (Counter) Class.forName(appConfigBean.get(serverName)).newInstance();
                     cl.loadInstantData(parameters, item);
                 } catch (ClassNotFoundException | IllegalAccessException | InstantiationException ex) {
                     LOG.log(Level.WARNING, "server error", ex);
-                    instantData.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса получения данных");
+                    appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса получения данных");
                     return;
                 } catch (DriverDataLoadException ex) {
                     LOG.log(Level.WARNING, "instantDataException", ex);
-                    instantData.updateAsyncRefreshCommand(0, rowID, "Error", ex.getMessage());
+                    appBean.updateAsyncRefreshCommand(0, rowID, "Error", ex.getMessage());
                     return;
                 }
             } else {
-                instantData.updateAsyncRefreshCommand(0, rowID, "Error", "Нет мгновенных параметров");
+                appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Нет мгновенных параметров");
                 return;
             }
 
-            boolean updateStatus = instantData.putInstantData(rowID, parameters);
+            int count = instantDataBean.putInstantData(rowID, parameters);
             putDataBean.putData(parameters);
 
-            if (updateStatus) {
-                int count = 0;
-                Integer objectID = null;
-                for (DataModel model: parameters) {
-                    objectID = model.getObjectId();
-                    count += model.getData().size();
-                }
-                instantData.updateAsyncRefreshCommand(1, rowID, String.valueOf(objectID),
-                        "Получено " + count + " элементов по объекту '" + objectID + "'.");
+            if (count != -1) {
+                appBean.updateAsyncRefreshCommand(1, rowID, objectName,
+                        "Получено " + count + " значений из " + parameters.size() + " слинкованных параетров по объекту " + objectName);
             } else {
-                instantData.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса загрузки данных");
+                appBean.updateAsyncRefreshCommand(0, rowID, "Error", "Ошибка сервиса загрузки данных");
             }
         } catch (SQLException ex) {
             LOG.log(Level.WARNING, "Ошибка обработки запроса", ex);
@@ -178,44 +168,14 @@ public class InstantDataSB {
     }
 
     /**
-     * Метод обновляет статус выполнения запроса
-     * @param status статус 0-ошибка, 1-выполнено
-     * @param rowID rowID в таблице arm_tecon_commands
-     * @param messageType тип сообщения
-     * @param message сообщение
-     * @return статус отработки метода
-     */
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public boolean updateAsyncRefreshCommand(int status, String rowID, String messageType,  String message) {
-        try (Connection connection = ds.getConnection();
-             PreparedStatement stmArmTecon = connection.prepareStatement(UPDATE_ARM_TECON_COMMAND);
-             PreparedStatement stmArm = connection.prepareStatement(UPDATE_ARM_COMMAND)) {
-            stmArmTecon.setInt(1, status);
-            stmArmTecon.setString(2, message);
-            stmArmTecon.setString(3, rowID);
-            stmArmTecon.executeUpdate();
-
-            stmArm.setInt(1, status);
-            stmArm.setString(2, "<" + messageType + ">" + message + "</" + messageType + ">");
-            stmArm.setString(3, message);
-            stmArm.setString(4, rowID);
-            stmArm.executeUpdate();
-        } catch (SQLException e) {
-            LOG.log(Level.WARNING, "error when update status", e);
-            context.setRollbackOnly();
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * Метод выгружает в базу мгновенные данные
      * @param rowID rowID в таблице arm_tecon_commands
      * @param paramList список параметров
      * @return статус выполнения метода
      */
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public boolean putInstantData(String rowID, List<DataModel> paramList) {
+    public int putInstantData(String rowID, List<DataModel> paramList) {
+        int[] size;
         try (Connection connection = ds.getConnection();
              PreparedStatement stmInsert = connection.prepareStatement(INSERT_ASYNC_REFRESH_DATA)) {
             Integer objectID = null;
@@ -235,15 +195,15 @@ public class InstantDataSB {
                 }
             }
 
-            int[] size = stmInsert.executeBatch();
+            size = stmInsert.executeBatch();
 
-            LOG.info("Вставил " + size.length + " мгновенных значений значений по объекту " + objectID +
+            LOG.info("Вставил " + size.length + " мгновенных значений по объекту " + objectID +
                     ". rowID запроса в таблице arm_tecon_commands " + rowID);
         } catch (SQLException ex) {
             LOG.log(Level.WARNING, "Ошибка импорта мгновенных данных в базу", ex);
-            return false;
+            return -1;
         }
 
-        return true;
+        return size.length;
     }
 }

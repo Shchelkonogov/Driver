@@ -26,9 +26,9 @@ import java.util.logging.Logger;
  */
 @Startup
 @Singleton
-public class InstantDataSingletonSB {
+public class InstantDataSingletonBean {
 
-    private static final Logger LOG = Logger.getLogger(InstantDataSingletonSB.class.getName());
+    private static final Logger LOG = Logger.getLogger(InstantDataSingletonBean.class.getName());
 
     private DatabaseChangeRegistration dcr;
 
@@ -39,7 +39,7 @@ public class InstantDataSingletonSB {
     private DataSource ds;
 
     @EJB
-    private InstantDataSB instantData;
+    private InstantDataBean instantData;
 
     /**
      * метод инициализирует dcn подписку на таблицу запросов на мгновенные данные
