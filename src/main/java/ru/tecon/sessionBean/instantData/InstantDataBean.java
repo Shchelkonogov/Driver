@@ -7,7 +7,7 @@ import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.util.ServerNames;
 import ru.tecon.sessionBean.app.AppBean;
 import ru.tecon.sessionBean.app.AppSingletonBean;
-import ru.tecon.sessionBean.counterData.UploadObjectDataSBean;
+import ru.tecon.sessionBean.counterData.CounterDataBean;
 
 import javax.annotation.Resource;
 import javax.ejb.*;
@@ -68,7 +68,7 @@ public class InstantDataBean {
     private AppBean appBean;
 
     @EJB
-    private UploadObjectDataSBean putDataBean;
+    private CounterDataBean counterDataBean;
 
     /**
      * Асинхронный метод для запуска получения мгновенных данных
@@ -132,8 +132,10 @@ public class InstantDataBean {
                 return;
             }
 
+            parameters.removeIf(dataModel -> dataModel.getData().isEmpty());
+
             int count = instantDataBean.putInstantData(rowID, parameters);
-            putDataBean.putData(parameters);
+            counterDataBean.putData(parameters);
 
             if (count != -1) {
                 appBean.updateCommand(1, rowID, objectName,

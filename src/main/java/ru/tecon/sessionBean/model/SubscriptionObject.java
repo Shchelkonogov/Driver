@@ -1,5 +1,8 @@
-package ru.tecon.model;
+package ru.tecon.sessionBean.model;
 
+/**
+ * Класс описывающий информацию о подписанном объекте
+ */
 public class SubscriptionObject {
 
     private String id;
