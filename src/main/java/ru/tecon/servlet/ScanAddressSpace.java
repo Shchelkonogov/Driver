@@ -1,8 +1,8 @@
 package ru.tecon.servlet;
 
 import ru.tecon.counter.Counter;
-import ru.tecon.sessionBean.AppConfigSBean;
-import ru.tecon.sessionBean.LoadOPCSBean;
+import ru.tecon.sessionBean.app.AppSingletonBean;
+import ru.tecon.sessionBean.opcObjects.OpcObjectBean;
 
 import javax.ejb.EJB;
 import javax.servlet.ServletOutputStream;
@@ -20,10 +20,10 @@ import java.io.IOException;
 public class ScanAddressSpace extends HttpServlet {
 
     @EJB
-    private LoadOPCSBean bean;
+    private OpcObjectBean opcObjectBean;
 
     @EJB
-    private AppConfigSBean appBean;
+    private AppSingletonBean appBean;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -36,7 +36,7 @@ public class ScanAddressSpace extends HttpServlet {
         if ((counterName != null) && appBean.containsKey(counterName)) {
             try {
                 Counter counter = (Counter) Class.forName(appBean.get(counterName)).newInstance();
-                bean.insertOPCObjects(counter.getObjects(), counterName);
+                opcObjectBean.insertOPCObjects(counter.getObjects(), counterName);
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
                 e.printStackTrace();
             }
