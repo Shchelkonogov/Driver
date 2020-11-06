@@ -16,7 +16,7 @@ public class ShowFileData {
     }
 
     private static void checkMCTSLAVE() {
-        ru.tecon.counter.MCT20_SLAVE.Driver driverMCT20SLAVE = new ru.tecon.counter.MCT20_SLAVE.Driver();
+        ru.tecon.counter.counterImpl.MCT20_SLAVE.Driver driverMCT20SLAVE = new ru.tecon.counter.counterImpl.MCT20_SLAVE.Driver();
         System.out.println("MCT SLAVE");
         driverMCT20SLAVE.printData("//172.16.4.47/c$/inetpub/ftproot/00/0087/0087b20201005-04");
     }
