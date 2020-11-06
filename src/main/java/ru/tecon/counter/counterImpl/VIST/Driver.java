@@ -1,11 +1,12 @@
-package ru.tecon.counter.VIST;
+package ru.tecon.counter.counterImpl.VIST;
 
 import ru.tecon.counter.Counter;
+import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
-import ru.tecon.counter.util.DriverLoadException;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
+import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -22,14 +23,13 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class Driver implements Counter {
+public class Driver extends Counter {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
@@ -81,7 +81,7 @@ public class Driver implements Counter {
     @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERNS);
-        return objects.stream().map(s -> "МСТ-20-VIST-" + s).collect(Collectors.toList());
+        return objects.stream().map(s -> ServerNames.MCT_20_VIST + "-" + s).collect(Collectors.toList());
     }
 
     @Override
@@ -138,17 +138,16 @@ public class Driver implements Counter {
                                     }
                                 }
                             } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                                e.printStackTrace();
+                                log.warning("error invoke method");
                             }
                         }
                     }
                 }
-            } catch (DriverLoadException e) {
-                log.log(Level.WARNING, objectName + " " + fData.getPath(), e);
-                if (e.getMessage().equals("IOException")) {
-                    log.warning("loadData end error " + objectName);
-                    return;
-                }
+            } catch (DriverDataLoadException e) {
+                log.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
+            } catch (IOException ex) {
+                log.warning("loadData end error " + objectName);
+                return;
             }
         }
 
@@ -172,33 +171,33 @@ public class Driver implements Counter {
     }
 
     @Override
-    public void clear() {
+    public void clearHistorical() {
         Drivers.clear(this, url, PATTERNS);
     }
 
-    private void readFile(String path) throws DriverLoadException {
+    private void readFile(String path) throws IOException, DriverDataLoadException {
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(Paths.get(path),
                 StandardOpenOption.READ))) {
             if (inputStream.available() < 120) {
-                throw new DriverLoadException("error size of file");
+                throw new DriverDataLoadException("error size of file");
             }
 
             byte[] buffer = new byte[inputStream.available()];
             if (inputStream.read(buffer) == -1) {
-                throw new DriverLoadException("error read file");
+                throw new DriverDataLoadException("error read file");
             }
 
             if (buffer[buffer.length -1] != 10) {
-                throw new DriverLoadException("Ошибочное окончание записи");
+                throw new DriverDataLoadException("Ошибочное окончание записи");
             }
 
             if ((((buffer[19] & 0x0f) >> 3) != 1) || (((buffer[19] & 0x10) >> 4) != 1)) {
-                throw new DriverLoadException("Ошибка в valid");
+                throw new DriverDataLoadException("Ошибка в valid");
             }
 
             if (Drivers.computeCrc16(Arrays.copyOfRange(buffer, 2, buffer.length -1)) !=
                     Short.toUnsignedInt(ByteBuffer.wrap(buffer, 0, 2).order(ByteOrder.LITTLE_ENDIAN).getShort())) {
-                throw new DriverLoadException("Ошибка в crc16");
+                throw new DriverDataLoadException("Ошибка в crc16");
             }
 
             ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
@@ -405,11 +404,6 @@ public class Driver implements Counter {
                 }
             }
 
-        } catch (IOException e) {
-            log.log(Level.WARNING, "read file error", e);
-            throw new DriverLoadException("IOException");
-        } catch (DateTimeParseException e) {
-            throw new DriverLoadException("parse data Exception");
         }
     }
 
@@ -430,7 +424,7 @@ public class Driver implements Counter {
         try {
             this.readFile(path);
             System.out.println(this);
-        } catch (DriverLoadException e) {
+        } catch (DriverDataLoadException | IOException e) {
             log.log(Level.WARNING, "printData error", e);
         }
     }

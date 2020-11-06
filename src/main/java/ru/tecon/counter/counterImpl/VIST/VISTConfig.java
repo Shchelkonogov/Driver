@@ -1,4 +1,4 @@
-package ru.tecon.counter.VIST;
+package ru.tecon.counter.counterImpl.VIST;
 
 public enum VISTConfig {
 

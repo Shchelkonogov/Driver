@@ -1,4 +1,4 @@
-package ru.tecon.counter.VIST;
+package ru.tecon.counter.counterImpl.VIST;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
