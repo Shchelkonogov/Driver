@@ -1,11 +1,12 @@
-package ru.tecon.counter.TEROS;
+package ru.tecon.counter.counterImpl.TEROS;
 
 import ru.tecon.counter.Counter;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
-import ru.tecon.counter.util.DriverLoadException;
+import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
+import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -29,7 +30,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class Driver implements Counter {
+public class Driver extends Counter {
 
     private static Logger log = Logger.getLogger(Driver.class.getName());
 
@@ -86,14 +87,14 @@ public class Driver implements Counter {
             Context ctx = new InitialContext();
             url = (String) ctx.lookup("java:comp/env/url");
         } catch (NamingException e) {
-            e.printStackTrace();
+            log.warning("error load context");
         }
     }
 
     @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERNS);
-        return objects.stream().map(s -> "МСТ-20-TEROS-" + s).collect(Collectors.toList());
+        return objects.stream().map(s -> ServerNames.MCT_20_TEROS + "-" + s).collect(Collectors.toList());
     }
 
     @Override
@@ -145,17 +146,16 @@ public class Driver implements Counter {
                                     }
                                 }
                             } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                                e.printStackTrace();
+                                log.warning("error invoke method");
                             }
                         }
                     }
                 }
-            } catch (DriverLoadException e) {
+            } catch (DriverDataLoadException e) {
                 log.log(Level.WARNING, objectName + " " + fData.getPath(), e);
-                if (e.getMessage().equals("IOException")) {
-                    log.warning("loadData end error " + objectName);
-                    return;
-                }
+            } catch (IOException ex) {
+                log.warning("loadData end error " + objectName);
+                return;
             }
         }
 
@@ -163,36 +163,36 @@ public class Driver implements Counter {
     }
 
     @Override
-    public void clear() {
+    public void clearHistorical() {
         Drivers.clear(this, url, PATTERNS);
     }
 
-    private void readFile(Path path) throws DriverLoadException {
+    private void readFile(Path path) throws DriverDataLoadException, IOException {
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(path, StandardOpenOption.READ))) {
             if (inputStream.available() != 537) {
-                throw new DriverLoadException("error size of file");
+                throw new DriverDataLoadException("error size of file");
             }
 
             byte[] buffer = new byte[inputStream.available()];
             if (inputStream.read(buffer) != 537) {
-                throw new DriverLoadException("error read file");
+                throw new DriverDataLoadException("error read file");
             }
 
             if (buffer[buffer.length - 1] != 10) {
-                throw new DriverLoadException("Ошибочное окончание записи");
+                throw new DriverDataLoadException("Ошибочное окончание записи");
             }
 
             if ((((buffer[18] & 0x0f) >> 3) != 1) || (((buffer[18] & 0x10) >> 4) != 1)) {
-                throw new DriverLoadException("Ошибка в valid");
+                throw new DriverDataLoadException("Ошибка в valid");
             }
 
             if ((buffer[19] & 0x0f) != 0) {
-                throw new DriverLoadException("В файле присутствуют ошибки");
+                throw new DriverDataLoadException("В файле присутствуют ошибки");
             }
 
             if (Drivers.computeCrc16(Arrays.copyOfRange(buffer, 2, buffer.length - 1)) !=
                     Short.toUnsignedInt(ByteBuffer.wrap(buffer, 0, 2).order(ByteOrder.LITTLE_ENDIAN).getShort())) {
-                throw new DriverLoadException("Ошибка в crc16");
+                throw new DriverDataLoadException("Ошибка в crc16");
             }
 
             ByteBuffer byteBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
@@ -225,11 +225,8 @@ public class Driver implements Counter {
             time3 = byteBuffer.getFloat(333);
             time4 = byteBuffer.getFloat(325);
 
-        } catch (IOException e) {
-            log.log(Level.WARNING, "read file error", e);
-            throw new DriverLoadException("IOException");
         } catch (DateTimeParseException e) {
-            throw new DriverLoadException("parse data Exception");
+            throw new DriverDataLoadException("parse data Exception");
         }
     }
 
@@ -250,7 +247,7 @@ public class Driver implements Counter {
         try {
             this.readFile(Paths.get(path));
             System.out.println(this);
-        } catch (DriverLoadException e) {
+        } catch (DriverDataLoadException | IOException e) {
             log.log(Level.WARNING, "printData error", e);
         }
     }
@@ -392,7 +389,7 @@ public class Driver implements Counter {
 
     @Override
     public String toString() {
-        return new StringJoiner(",\n", ru.tecon.counter.TEROS.Driver.class.getSimpleName() + "[\n", "\n]")
+        return new StringJoiner(",\n", ru.tecon.counter.counterImpl.TEROS.Driver.class.getSimpleName() + "[\n", "\n]")
                 .add("  Качаство (quality): " + quality)
                 .add("  Количество теплоты нарастающим итогом (pti): " + pti)
                 .add("  Количество теплоты за время (ptd): " + ptd)

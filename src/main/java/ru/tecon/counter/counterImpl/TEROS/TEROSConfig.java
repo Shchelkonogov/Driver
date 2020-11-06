@@ -1,4 +1,4 @@
-package ru.tecon.counter.TEROS;
+package ru.tecon.counter.counterImpl.TEROS;
 
 public enum TEROSConfig {
 
