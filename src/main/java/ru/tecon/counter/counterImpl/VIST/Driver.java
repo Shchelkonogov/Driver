@@ -568,7 +568,7 @@ public class Driver extends Counter {
 
     @Override
     public String toString() {
-        return new StringJoiner(",\n", ru.tecon.counter.SA94.Driver.class.getSimpleName() + "[\n", "\n]")
+        return new StringJoiner(",\n", Driver.class.getSimpleName() + "[\n", "\n]")
                 .add("  Качаство (quality): " + quality)
                 .add("  Количество теплоты нарастающим итогом (pti): " + pti)
                 .add("  Количество теплоты за время (ptd): " + ptd)
