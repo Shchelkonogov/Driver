@@ -10,7 +10,7 @@ import javax.naming.NamingException;
 import java.util.List;
 import java.util.logging.Logger;
 
-public class Driver implements Counter {
+public class Driver extends Counter {
 
     private TransferBLocal bean;
 
@@ -21,7 +21,7 @@ public class Driver implements Counter {
             Context ctx = new InitialContext();
             bean = (TransferBLocal) ctx.lookup("java:comp/transfer");
         } catch (NamingException e) {
-            e.printStackTrace();
+            log.warning("Ошибка загрузки бина");
         }
     }
 
@@ -33,10 +33,6 @@ public class Driver implements Counter {
     @Override
     public List<String> getConfig(String object) {
         return bean.getConfig(object);
-    }
-
-    @Override
-    public void clear() {
     }
 
     @Override
