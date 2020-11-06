@@ -146,8 +146,8 @@ public class CounterDataBean {
                     startDate = LocalDateTime.parse(resStartDate.getString(1), FORMAT);
                 }
 
-                result.add(new DataModel(resLinked.getString(1), resLinked.getInt(2), resLinked.getInt(3),
-                        resLinked.getInt(4), startDate, resLinked.getString(5)));
+                result.add(new DataModel(resLinked.getString(1), resLinked.getInt(2), resLinked.getInt(3), resLinked.getInt(4),
+                        startDate, (resLinked.getString(5) == null) ? null : resLinked.getString(5).substring(2)));
             }
         } catch (SQLException ex) {
             LOG.log(Level.WARNING, "error select linked parameters", ex);
