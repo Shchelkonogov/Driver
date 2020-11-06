@@ -1,7 +1,7 @@
-package ru.tecon.counter.IASDTU;
+package ru.tecon.counter.counterImpl.IASDTU;
 
 import ru.tecon.counter.Counter;
-import ru.tecon.counter.IASDTU.sessionBean.TransferBLocal;
+import ru.tecon.counter.counterImpl.IASDTU.sessionBean.TransferBLocal;
 import ru.tecon.counter.model.DataModel;
 
 import javax.naming.Context;

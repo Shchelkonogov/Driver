@@ -1,4 +1,4 @@
-package ru.tecon.counter.IASDTU.sessionBean;
+package ru.tecon.counter.counterImpl.IASDTU.sessionBean;
 
 import ru.tecon.counter.model.DataModel;
 
