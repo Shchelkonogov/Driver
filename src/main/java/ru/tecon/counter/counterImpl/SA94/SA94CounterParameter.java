@@ -1,4 +1,4 @@
-package ru.tecon.counter.SA94;
+package ru.tecon.counter.counterImpl.SA94;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

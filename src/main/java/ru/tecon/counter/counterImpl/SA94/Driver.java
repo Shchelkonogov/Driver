@@ -1,11 +1,12 @@
-package ru.tecon.counter.SA94;
+package ru.tecon.counter.counterImpl.SA94;
 
 import ru.tecon.counter.Counter;
-import ru.tecon.counter.util.DriverLoadException;
+import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
+import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -25,7 +26,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class Driver implements Counter {
+public class Driver extends Counter {
 
     private static Logger log = Logger.getLogger(Driver.class.getName());
 
@@ -70,14 +71,14 @@ public class Driver implements Counter {
             Context ctx = new InitialContext();
             url = (String) ctx.lookup("java:comp/env/url");
         } catch (NamingException e) {
-            e.printStackTrace();
+            log.warning("error load context");
         }
     }
 
     @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERN);
-        return objects.stream().map(e -> e = "МСТ-20-SA94-" + e).collect(Collectors.toList());
+        return objects.stream().map(e -> ServerNames.MCT_20_SA94 + "-" + e).collect(Collectors.toList());
     }
 
     @Override
@@ -88,7 +89,7 @@ public class Driver implements Counter {
     }
 
     @Override
-    public void clear() {
+    public void clearHistorical() {
         Drivers.clear(this, url, PATTERN);
     }
 
@@ -135,17 +136,16 @@ public class Driver implements Counter {
                                     }
                                 }
                             } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                                e.printStackTrace();
+                                log.warning("error invoke method");
                             }
                         }
                     }
                 }
-            } catch (DriverLoadException e) {
+            } catch (DriverDataLoadException e) {
                 log.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
-                if (e.getMessage().equals("IOException")) {
-                    log.warning("loadData end error " + objectName);
-                    return;
-                }
+            } catch (IOException ex) {
+                log.warning("loadData end error " + objectName);
+                return;
             }
         }
 
@@ -168,7 +168,7 @@ public class Driver implements Counter {
         return result;
     }
 
-    private void readFile(Path path) throws DriverLoadException {
+    private void readFile(Path path) throws DriverDataLoadException, IOException {
         String fileName = path.getFileName().toString();
         if (fileName.matches(PATTERN.get(0))) {
             readFileNormal(path);
@@ -179,7 +179,7 @@ public class Driver implements Counter {
         }
     }
 
-    private void readFileNormal(Path path) throws DriverLoadException {
+    private void readFileNormal(Path path) throws DriverDataLoadException, IOException {
         log.info("Driver.readFileNormal start read: " + path);
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(path,
                 StandardOpenOption.READ))) {
@@ -212,15 +212,12 @@ public class Driver implements Counter {
             }
 //            System.out.println("crc: " + Integer.toHexString(((buffer[47] & 0xff) << 8) | (buffer[46] & 0xff)));
 //            System.out.println("calculate crc: " + Integer.toHexString(Drivers.computeCrc16(Arrays.copyOfRange(buffer, 0 , 46))));
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new DriverLoadException("IOException");
         } catch (DateTimeParseException e) {
-            throw new DriverLoadException("parse data Exception");
+            throw new DriverDataLoadException("parse data Exception");
         }
     }
 
-    private void readFileExtend(Path path) throws DriverLoadException {
+    private void readFileExtend(Path path) throws DriverDataLoadException, IOException {
         log.info("Driver.readFileExtend start read: " + path);
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(path,
                 StandardOpenOption.READ))) {
@@ -248,11 +245,8 @@ public class Driver implements Counter {
             if ((((buffer[1] & 0xff) << 8) | (buffer[0] & 0xff)) != Drivers.computeCrc16(Arrays.copyOfRange(buffer, 2, 52 + 32))) {
                 quality = 0;
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new DriverLoadException("IOException");
         } catch (DateTimeParseException e) {
-            throw new DriverLoadException("parse data Exception");
+            throw new DriverDataLoadException("parse data Exception");
         }
     }
 
@@ -267,31 +261,31 @@ public class Driver implements Counter {
     }
 
     private void checkData(BufferedInputStream inputStream, byte[] buffer, int bufferSize, boolean standardArchive)
-            throws DriverLoadException, IOException {
+            throws DriverDataLoadException, IOException {
         if (inputStream.available() < bufferSize) {
             log.warning("checkData Ошибка в данных");
-            throw new DriverLoadException("checkData Ошибка в данных");
+            throw new DriverDataLoadException("checkData Ошибка в данных");
         }
 
         if (inputStream.read(buffer, 0, bufferSize) == -1) {
             log.warning("checkData Ошибка в чтение данных");
-            throw new DriverLoadException("checkData Ошибка в чтение данных");
+            throw new DriverDataLoadException("checkData Ошибка в чтение данных");
         }
 
 //        if ((((buffer[1] & 0x04) >> 2) != 0) || ((buffer[1] >> 3) != 1)) {
         if (standardArchive) {
             if (((buffer[1] & 0x0f) >> 3) != 1) {
-                throw new DriverLoadException("Ошибка в valid standard SA94 archive");
+                throw new DriverDataLoadException("Ошибка в valid standard SA94 archive");
             }
         } else {
             if (((buffer[1] & 0x10) >> 4) != 1) {
-                throw new DriverLoadException("Ошибка в valid extended SA94 archive");
+                throw new DriverDataLoadException("Ошибка в valid extended SA94 archive");
             }
         }
 
         if ((buffer[bufferSize - 1] & 0xff) != 10) {
             log.warning("checkData Ошибочное окончание записи");
-            throw new DriverLoadException("checkData Ошибочное окончание записи");
+            throw new DriverDataLoadException("checkData Ошибочное окончание записи");
         }
     }
 
@@ -326,8 +320,8 @@ public class Driver implements Counter {
         try {
             this.readFile(Paths.get(path));
             System.out.println(this);
-        } catch (DriverLoadException e) {
-            log.log(Level.WARNING, "DriverLOadException", e);
+        } catch (DriverDataLoadException | IOException e) {
+            log.log(Level.WARNING, "DriverLoadException", e);
         }
     }
 
