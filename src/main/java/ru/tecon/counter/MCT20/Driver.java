@@ -342,7 +342,7 @@ public class Driver extends Counter {
                                     }
                                 }
                             } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                                e.printStackTrace();
+                                log.warning("error invoke method");
                             }
                         }
                     }
