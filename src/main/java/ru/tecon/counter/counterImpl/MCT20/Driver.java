@@ -13,7 +13,6 @@ import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
-import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -45,6 +44,8 @@ public class Driver extends Counter {
     private static final Map<String, String> ALARM_METHODS_MAP = new HashMap<>();
 
     private static final Map<String, String> INSTANT_REGISTER;
+
+    private static final String SERVER_NAME = "МСТ-20";
 
     private String url;
 
@@ -132,9 +133,14 @@ public class Driver extends Counter {
     }
 
     @Override
+    public String getServerName() {
+        return SERVER_NAME;
+    }
+
+    @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERN);
-        return objects.stream().map(e -> e = ServerNames.MCT_20 + "-" + e).collect(Collectors.toList());
+        return objects.stream().map(e -> e = SERVER_NAME + "-" + e).collect(Collectors.toList());
     }
 
     @Override
@@ -296,7 +302,7 @@ public class Driver extends Counter {
                     master.disconnect();
                 } catch (Exception e) {
                     log.log(Level.WARNING, "modbus error", e);
-                    throw new DriverDataLoadException(ServerNames.MCT_20 + " недоступен");
+                    throw new DriverDataLoadException(SERVER_NAME + " недоступен");
                 }
             }
         } catch (IOException e) {

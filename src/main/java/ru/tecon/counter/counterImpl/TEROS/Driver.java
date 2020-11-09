@@ -6,7 +6,6 @@ import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
-import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -37,6 +36,8 @@ public class Driver extends Counter {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
     private static final List<String> PATTERNS = Collections.singletonList("\\d{4}t\\d{8}-\\d{2}");
+
+    private static final String SERVER_NAME = "МСТ-20-TEROS";
 
     private Float pti;
     private Double ptd;
@@ -92,9 +93,14 @@ public class Driver extends Counter {
     }
 
     @Override
+    public String getServerName() {
+        return SERVER_NAME;
+    }
+
+    @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERNS);
-        return objects.stream().map(s -> ServerNames.MCT_20_TEROS + "-" + s).collect(Collectors.toList());
+        return objects.stream().map(s -> SERVER_NAME + "-" + s).collect(Collectors.toList());
     }
 
     @Override

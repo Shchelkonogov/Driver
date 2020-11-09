@@ -6,7 +6,6 @@ import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
-import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -37,6 +36,8 @@ public class Driver extends Counter {
     private static final List<String> PATTERNS = Collections.singletonList("\\d{4}v\\d{8}-\\d{2}");
 
     private static Logger log = Logger.getLogger(Driver.class.getName());
+
+    private static final String SERVER_NAME = "МСТ-20-VIST";
 
     private Double pti;
     private Double ptd;
@@ -80,9 +81,14 @@ public class Driver extends Counter {
     }
 
     @Override
+    public String getServerName() {
+        return SERVER_NAME;
+    }
+
+    @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERNS);
-        return objects.stream().map(s -> ServerNames.MCT_20_VIST + "-" + s).collect(Collectors.toList());
+        return objects.stream().map(s -> SERVER_NAME + "-" + s).collect(Collectors.toList());
     }
 
     @Override

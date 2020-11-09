@@ -6,7 +6,7 @@ import oracle.jdbc.dcn.DatabaseChangeRegistration;
 import oracle.jdbc.dcn.QueryChangeDescription;
 import oracle.jdbc.dcn.RowChangeDescription;
 import oracle.jdbc.dcn.TableChangeDescription;
-import ru.tecon.counter.util.ServerNames;
+import ru.tecon.sessionBean.app.AppSingletonBean;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -41,6 +41,9 @@ public class InstantDataSingletonBean {
     @EJB
     private InstantDataBean instantData;
 
+    @EJB
+    private AppSingletonBean appSingletonBean;
+
     /**
      * метод инициализирует dcn подписку на таблицу запросов на мгновенные данные
      */
@@ -74,7 +77,7 @@ public class InstantDataSingletonBean {
                 ((OracleStatement) stm).setDatabaseChangeRegistration(dcr);
 
                 StringJoiner joiner = new StringJoiner(", ", "(", ")");
-                for (String name: ServerNames.SERVERS) {
+                for (String name: appSingletonBean.getServers()) {
                     joiner.add("'" + name + "'");
                 }
 
@@ -97,7 +100,7 @@ public class InstantDataSingletonBean {
     private void clearTable() {
         try (OracleConnection connect = (OracleConnection) ds.getConnection();
              PreparedStatement statement = connect.prepareStatement(DELETE_INSTANT_DATA_REQUEST)) {
-            statement.setArray(1, connect.createOracleArray("T_VARCHAR_250", ServerNames.SERVERS.toArray()));
+            statement.setArray(1, connect.createOracleArray("T_VARCHAR_250", appSingletonBean.getServers().toArray()));
             statement.executeQuery();
         } catch (SQLException ex) {
             LOG.log(Level.WARNING, "error remove data from arm_tecon_commands", ex);

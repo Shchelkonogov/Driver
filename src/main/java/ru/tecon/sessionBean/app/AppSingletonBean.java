@@ -1,13 +1,11 @@
 package ru.tecon.sessionBean.app;
 
-import ru.tecon.counter.util.ServerNames;
+import ru.tecon.counter.Counter;
 
+import javax.annotation.PostConstruct;
 import javax.ejb.Singleton;
 import javax.ejb.Startup;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.*;
 
 /**
  * Singleton bean в котором хранится информация по драйверам
@@ -16,14 +14,28 @@ import java.util.stream.Stream;
 @Singleton
 public class AppSingletonBean {
 
-    private static final Map<String, String> countersMap = Stream.of(new String[][] {
-//            {"IASDTU", "ru.tecon.counter.IASDTU.Driver"}})
-            {ServerNames.MCT_20, "ru.tecon.counter.MCT20.Driver"},
-            {ServerNames.MCT_20_SA94, "ru.tecon.counter.SA94.Driver"},
-            {ServerNames.MCT_20_VIST, "ru.tecon.counter.VIST.Driver"},
-            {ServerNames.MCT_20_TEROS, "ru.tecon.counter.TEROS.Driver"},
-            {ServerNames.MCT_20_SLAVE, "ru.tecon.counter.MCT20_SLAVE.Driver"}})
-            .collect(Collectors.toMap(data -> data[0], data -> data[1]));
+    private static final List<String> DRIVERS = Arrays.asList(
+            "ru.tecon.counter.counterImpl.IASDTU.Driver",
+            "ru.tecon.counter.counterImpl.MCT20.Driver",
+            "ru.tecon.counter.counterImpl.SA94.Driver",
+            "ru.tecon.counter.counterImpl.VIST.Driver",
+            "ru.tecon.counter.counterImpl.TEROS.Driver",
+            "ru.tecon.counter.counterImpl.MCT20_SLAVE.Driver"
+            );
+
+    private static final Map<String, String> COUNTERS_MAP = new HashMap<>();
+
+    @PostConstruct
+    private void init() {
+        try {
+            for (String driver : DRIVERS) {
+                Counter counter = (Counter) Class.forName(driver).newInstance();
+                COUNTERS_MAP.put(counter.getServerName(), driver);
+            }
+        } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
 
     /**
      * Получение пути к драйверу
@@ -31,7 +43,7 @@ public class AppSingletonBean {
      * @return путь
      */
     public String get(String name) {
-        return countersMap.get(name);
+        return COUNTERS_MAP.get(name);
     }
 
     /**
@@ -40,7 +52,7 @@ public class AppSingletonBean {
      * @return статус присутствия
      */
     public boolean containsKey(String name) {
-        return countersMap.containsKey(name);
+        return COUNTERS_MAP.containsKey(name);
     }
 
     /**
@@ -48,6 +60,6 @@ public class AppSingletonBean {
      * @return список драйверов
      */
     public Set<String> getServers() {
-        return countersMap.keySet();
+        return COUNTERS_MAP.keySet();
     }
 }

@@ -11,6 +11,11 @@ import java.util.List;
 public abstract class Counter {
 
     /**
+     * Метод определяет имя сервера
+     */
+    public abstract String getServerName();
+
+    /**
      * Выгрузка opc объектов
      * @return список объектов
      */

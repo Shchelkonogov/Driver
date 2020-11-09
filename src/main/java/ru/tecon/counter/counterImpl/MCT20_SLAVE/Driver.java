@@ -13,7 +13,6 @@ import ru.tecon.counter.model.ValueModel;
 import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
-import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -44,6 +43,8 @@ public class Driver extends Counter {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
     private static final List<String> PATTERN = Collections.singletonList("\\d{4}b\\d{8}-\\d{2}");
+
+    private static final String SERVER_NAME = "МСТ-20-SLAVE";
 
     private String url;
 
@@ -116,9 +117,14 @@ public class Driver extends Counter {
     }
 
     @Override
+    public String getServerName() {
+        return SERVER_NAME;
+    }
+
+    @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERN);
-        return objects.stream().map(e -> ServerNames.MCT_20_SLAVE + "-" + e).collect(Collectors.toList());
+        return objects.stream().map(e -> SERVER_NAME + "-" + e).collect(Collectors.toList());
     }
 
     @Override
@@ -221,7 +227,7 @@ public class Driver extends Counter {
 
                     master.disconnect();
                 } catch (Exception e) {
-                    throw new DriverDataLoadException(ServerNames.MCT_20_SLAVE + " недоступен");
+                    throw new DriverDataLoadException(SERVER_NAME + " недоступен");
                 }
             }
         } catch (IOException e) {

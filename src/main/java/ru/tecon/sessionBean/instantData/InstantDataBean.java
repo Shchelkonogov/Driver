@@ -4,7 +4,6 @@ import ru.tecon.counter.Counter;
 import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
-import ru.tecon.counter.util.ServerNames;
 import ru.tecon.sessionBean.app.AppBean;
 import ru.tecon.sessionBean.app.AppSingletonBean;
 import ru.tecon.sessionBean.counterData.CounterDataBean;
@@ -91,7 +90,7 @@ public class InstantDataBean {
                     return;
                 }
 
-                if (ServerNames.SERVERS.contains(res.getString(2))) {
+                if (appSingletonBean.containsKey(res.getString(2))) {
                     serverName = res.getString(2);
                 } else {
                     return;

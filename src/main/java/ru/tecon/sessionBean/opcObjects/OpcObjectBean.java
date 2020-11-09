@@ -1,7 +1,6 @@
 package ru.tecon.sessionBean.opcObjects;
 
 import ru.tecon.counter.Counter;
-import ru.tecon.counter.util.ServerNames;
 import ru.tecon.sessionBean.app.AppBean;
 import ru.tecon.sessionBean.app.AppSingletonBean;
 
@@ -64,7 +63,7 @@ public class OpcObjectBean {
                     return;
                 }
 
-                if (ServerNames.SERVERS.contains(res.getString(2))) {
+                if (appSingletonBean.containsKey(res.getString(2))) {
                     serverName = res.getString(2);
                 } else {
                     return;

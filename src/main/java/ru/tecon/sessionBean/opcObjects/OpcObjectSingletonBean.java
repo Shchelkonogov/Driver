@@ -6,7 +6,7 @@ import oracle.jdbc.dcn.DatabaseChangeRegistration;
 import oracle.jdbc.dcn.QueryChangeDescription;
 import oracle.jdbc.dcn.RowChangeDescription;
 import oracle.jdbc.dcn.TableChangeDescription;
-import ru.tecon.counter.util.ServerNames;
+import ru.tecon.sessionBean.app.AppSingletonBean;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -39,6 +39,9 @@ public class OpcObjectSingletonBean {
     @EJB
     private OpcObjectBean opcObjectBean;
 
+    @EJB
+    private AppSingletonBean appSingletonBean;
+
     @PostConstruct
     private void init() {
         try (OracleConnection connect = (OracleConnection) ds.getConnection()) {
@@ -69,7 +72,7 @@ public class OpcObjectSingletonBean {
                 ((OracleStatement) stm).setDatabaseChangeRegistration(dcr);
 
                 StringJoiner joiner = new StringJoiner(", ", "(", ")");
-                for (String name: ServerNames.SERVERS) {
+                for (String name: appSingletonBean.getServers()) {
                     joiner.add("'" + name + "'");
                 }
 
@@ -92,7 +95,7 @@ public class OpcObjectSingletonBean {
     private void clearTable() {
         try (OracleConnection connect = (OracleConnection) ds.getConnection();
              PreparedStatement statement = connect.prepareStatement(DELETE_CONFIG_REQUEST)) {
-            statement.setArray(1, connect.createOracleArray("T_VARCHAR_250", ServerNames.SERVERS.toArray()));
+            statement.setArray(1, connect.createOracleArray("T_VARCHAR_250", appSingletonBean.getServers().toArray()));
             statement.executeQuery();
         } catch (SQLException ex) {
             LOG.log(Level.WARNING, "error remove data from arm_tecon_commands", ex);

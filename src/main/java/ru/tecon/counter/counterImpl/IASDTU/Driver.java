@@ -12,6 +12,8 @@ import java.util.logging.Logger;
 
 public class Driver extends Counter {
 
+    private static final String SERVER_NAME = "IASDTU";
+
     private TransferBLocal bean;
 
     public Driver() {
@@ -23,6 +25,11 @@ public class Driver extends Counter {
         } catch (NamingException e) {
             log.warning("Ошибка загрузки бина");
         }
+    }
+
+    @Override
+    public String getServerName() {
+        return SERVER_NAME;
     }
 
     @Override

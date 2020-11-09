@@ -2,16 +2,20 @@ import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 import oracle.jdbc.OracleStatement;
 import oracle.jdbc.dcn.*;
-import ru.tecon.counter.util.ServerNames;
 
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 import java.util.StringJoiner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class DCNTest {
+
+    private static final List<String> SERVERS = Arrays.asList("МСТ-20", "МСТ-20-SA94", "МСТ-20-VIST",
+            "МСТ-20-TEROS", "МСТ-20-SLAVE");
 
     private static Logger log = Logger.getLogger(DCNTest.class.getName());
 
@@ -45,7 +49,7 @@ public class DCNTest {
             ((OracleStatement) stm).setDatabaseChangeRegistration(dcr);
 
             StringJoiner joiner = new StringJoiner(", ", "(", ")");
-            for (String name: ServerNames.SERVERS) {
+            for (String name: SERVERS) {
                 joiner.add("'" + name + "'");
             }
 
