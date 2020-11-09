@@ -9,7 +9,7 @@ public class ShowFileData {
     }
 
     private static void checkMCT() {
-        ru.tecon.counter.MCT20.Driver driverMCT = new ru.tecon.counter.MCT20.Driver();
+        ru.tecon.counter.counterImpl.MCT20.Driver driverMCT = new ru.tecon.counter.counterImpl.MCT20.Driver();
         System.out.println("MCT20");
         System.out.println("Version 4");
         driverMCT.printData("//172.16.4.47/c$/inetpub/ftproot/00/0087/0087a20201002-05");

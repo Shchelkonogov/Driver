@@ -1,4 +1,4 @@
-package ru.tecon.counter.MCT20;
+package ru.tecon.counter.counterImpl.MCT20;
 
 public enum MCT20Config {
 

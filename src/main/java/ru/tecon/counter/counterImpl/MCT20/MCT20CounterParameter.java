@@ -1,4 +1,4 @@
-package ru.tecon.counter.MCT20;
+package ru.tecon.counter.counterImpl.MCT20;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
