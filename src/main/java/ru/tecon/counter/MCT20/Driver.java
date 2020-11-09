@@ -1,11 +1,19 @@
 package ru.tecon.counter.MCT20;
 
+import com.intelligt.modbus.jlibmodbus.master.ModbusMaster;
+import com.intelligt.modbus.jlibmodbus.master.ModbusMasterFactory;
+import com.intelligt.modbus.jlibmodbus.serial.SerialParameters;
+import com.intelligt.modbus.jlibmodbus.serial.SerialPort;
+import com.intelligt.modbus.jlibmodbus.serial.SerialPortFactoryTcpClient;
+import com.intelligt.modbus.jlibmodbus.serial.SerialUtils;
+import com.intelligt.modbus.jlibmodbus.tcp.TcpParameters;
 import ru.tecon.counter.Counter;
-import ru.tecon.counter.util.DriverLoadException;
 import ru.tecon.counter.model.DataModel;
 import ru.tecon.counter.model.ValueModel;
+import ru.tecon.counter.exception.DriverDataLoadException;
 import ru.tecon.counter.util.Drivers;
 import ru.tecon.counter.util.FileData;
+import ru.tecon.counter.util.ServerNames;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -14,18 +22,29 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.*;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class Driver implements Counter {
+public class Driver extends Counter {
 
-    private static final Logger LOG = Logger.getLogger(Driver.class.getName());
+    private static Logger log = Logger.getLogger(Driver.class.getName());
 
     private static final List<String> PATTERN = Arrays.asList("\\d{4}a\\d{8}-\\d{2}", "ans-\\d{8}-\\d{2}");
+
+    private static final Map<String, String> METHODS_MAP = new HashMap<>();
+
+    private static final Map<String, String> ALARM_METHODS_MAP = new HashMap<>();
+
+    private static final Map<String, String> INSTANT_REGISTER;
 
     private String url;
 
@@ -74,38 +93,220 @@ public class Driver implements Counter {
     private Long[] accumulatedWorkingTimeQ = new Long[3];
     private Float[] accumulatedWaterHeatZone = new Float[3];
 
+    private String electric;
+
     private int quality = 192;
+
+    static {
+        for(Method md: Driver.class.getMethods()){
+            if (md.isAnnotationPresent(MCT20CounterParameter.class)) {
+                if (md.getAnnotation(MCT20CounterParameter.class).name().isAlarm()) {
+                    ALARM_METHODS_MAP.put(md.getAnnotation(MCT20CounterParameter.class).name().getProperty(), md.getName());
+                } else {
+                    METHODS_MAP.put(md.getAnnotation(MCT20CounterParameter.class).name().getProperty(), md.getName());
+                }
+            }
+        }
+
+        INSTANT_REGISTER = Stream.of(MCT20Config.values())
+                .filter(mct20Config -> mct20Config.getRegister() != null)
+                .collect(Collectors.toMap(MCT20Config::getProperty, MCT20Config::getRegister));
+    }
 
     public Driver() {
         try {
             Context ctx = new InitialContext();
             url = (String) ctx.lookup("java:comp/env/url");
-        } catch (NamingException e) {
-            e.printStackTrace();
+        } catch (NamingException ignore) {
+            log.warning("Не загузился корневой путь");
         }
     }
 
     @Override
     public List<String> getConfig(String object) {
-        return Stream.of(MCT20Config.values())
-                .map(MCT20Config::getProperty)
+        return Stream.concat(
+                Stream.of(MCT20Config.values()).map(MCT20Config::getProperty),
+                Stream.of(MCT20Config.values())
+                        .map(mct20Config -> mct20Config.getProperty() + ":Текущие данные"))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<String> getObjects() {
         List<String> objects = Drivers.scan(url, PATTERN);
-        return objects.stream().map(e -> e = "МСТ-20-" + e).collect(Collectors.toList());
+        return objects.stream().map(e -> e = ServerNames.MCT_20 + "-" + e).collect(Collectors.toList());
     }
 
     @Override
-    public void clear() {
+    public void clearHistorical() {
         Drivers.clear(this, url, PATTERN);
     }
 
     @Override
+    public void clearAlarms() {
+        log.info("Start clear alarms");
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(url + "/alarms"),
+                entry -> entry.getFileName().toString().matches("\\d{4}a\\d{8}-\\d{6}"))) {
+            stream.forEach(path -> {
+                if (LocalDateTime.parse(path.getFileName().toString().substring(5), DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+                        .isBefore(LocalDateTime.now().minusDays(45))) {
+                    try {
+                        Files.delete(path);
+                        log.info("delete ok: " + path.getFileName().toString());
+                    } catch (IOException e) {
+                        log.log(Level.WARNING, "error delete file", e);
+                    }
+                }
+            });
+        } catch (IOException e) {
+            log.log(Level.WARNING, "error when clear alarms", e);
+        }
+        log.info("stop clear alarms");
+    }
+
+    @Override
+    public void loadAlarmData(List<DataModel> params, String objectName) {
+        String counterNumber = objectName.substring(objectName.length() - 4);
+
+        Collections.sort(params);
+
+        List<FileData> fileData = Drivers.getFilesForLoad(url + "/alarms", params.get(0).getStartTime(),
+                Collections.singletonList(counterNumber + "a\\d{8}-\\d{6}"), "yyyyMMdd-HHmmss");
+
+        Class<?> cl = this.getClass();
+
+        for (FileData fData: fileData) {
+            try {
+                if (Files.exists(fData.getPath())) {
+
+                    List<String> lines = Files.readAllLines(fData.getPath());
+                    if ((lines.size() > 0) && (lines.get(0).contains("="))) {
+                        electric = lines.get(0).substring(lines.get(0).indexOf("=") + 1, lines.get(0).indexOf("=") + 2);
+                    }
+
+                    for (DataModel model: params) {
+                        if (model.getStartTime() == null || fData.getDateTime().isAfter(model.getStartTime())) {
+                            try {
+                                String mName = ALARM_METHODS_MAP.get(model.getParamName());
+                                if (Objects.nonNull(mName)) {
+                                    Object value = cl.getMethod(mName).invoke(this);
+                                    if (value == null) {
+                                        continue;
+                                    }
+                                    if (value instanceof String) {
+                                        model.addData(new ValueModel((String) value, fData.getDateTime().minusHours(1), quality));
+                                    }
+                                }
+                            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                                log.warning("error invoke method");
+                            }
+                        }
+                    }
+                }
+            } catch (IOException ex) {
+                return;
+            } catch (Exception e) {
+                log.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public void loadInstantData(List<DataModel> params, String counterNumber) throws DriverDataLoadException {
+        Path ipPath = Paths.get(url + "/" + counterNumber.substring(0, 2) + "/" + counterNumber + "/ip.txt");
+        try {
+            if (Files.exists(ipPath)) {
+                List<String> lines = Files.readAllLines(ipPath);
+
+                String ip;
+                int slaveID = 1;
+
+                switch (lines.size()) {
+                    case 1: {
+                        ip = lines.get(0);
+                        break;
+                    }
+                    case 2: {
+                        ip = lines.get(0);
+                        slaveID = Integer.parseInt(lines.get(1));
+                        break;
+                    }
+                    default:
+                        throw new DriverDataLoadException("Неожиданные данные в файле ip.txt");
+                }
+
+                Set<String> registers = new HashSet<>();
+                for (DataModel model: params) {
+                    String name = model.getParamName().replace(":Текущие данные", "");
+
+                    if (INSTANT_REGISTER.containsKey(name)) {
+                        String[] split = INSTANT_REGISTER.get(name).split("/");
+                        registers.add(split[0] + "/" + split[1]);
+                    }
+                }
+
+                log.info("load instant data for " + ip + " id " + slaveID + " registers " + registers);
+
+                if (registers.isEmpty()) {
+                    throw new DriverDataLoadException("Мгновенные значения отсутствуют в приборе");
+                }
+
+                try {
+                    TcpParameters tcpParameter = new TcpParameters();
+                    tcpParameter.setHost(InetAddress.getByName(ip));
+                    tcpParameter.setPort(502);
+                    tcpParameter.setKeepAlive(true);
+
+                    SerialParameters serialParameter = new SerialParameters();
+                    serialParameter.setBaudRate(SerialPort.BaudRate.BAUD_RATE_115200);
+                    serialParameter.setDataBits(8);
+                    serialParameter.setParity(SerialPort.Parity.NONE);
+                    serialParameter.setStopBits(1);
+
+                    SerialUtils.setSerialPortFactory(new SerialPortFactoryTcpClient(tcpParameter));
+                    ModbusMaster master = ModbusMasterFactory.createModbusMasterRTU(serialParameter);
+                    master.setResponseTimeout(30000);
+                    master.connect();
+
+                    for (String register: registers) {
+                        int offset = Integer.parseInt(register.split("/")[0]);
+                        int quantity = Integer.parseInt(register.split("/")[1]);
+
+                        int[] registerValues = master.readHoldingRegisters(slaveID, offset, quantity);
+
+                        for (DataModel model: params) {
+                            String name = model.getParamName().replace(":Текущие данные", "");
+
+                            if (INSTANT_REGISTER.containsKey(name) && INSTANT_REGISTER.get(name).startsWith(register)) {
+                                int index = Integer.parseInt(INSTANT_REGISTER.get(name).split("/")[2]);
+
+                                if ("float".equals(INSTANT_REGISTER.get(name).split("/")[3])) {
+                                    ByteBuffer buffer = ByteBuffer.allocate(4)
+                                            .putShort((short) registerValues[index + 1])
+                                            .putShort((short) registerValues[index]);
+
+                                    float value = buffer.order(ByteOrder.BIG_ENDIAN).getFloat(0);
+
+                                    model.addData(new ValueModel(Float.toString(value), LocalDateTime.now(), quality));
+                                }
+                            }
+                        }
+                    }
+
+                    master.disconnect();
+                } catch (Exception e) {
+                    log.log(Level.WARNING, "modbus error", e);
+                    throw new DriverDataLoadException(ServerNames.MCT_20 + " недоступен");
+                }
+            }
+        } catch (IOException e) {
+            throw new DriverDataLoadException("Ошибка чтения файла с ip в папке " + counterNumber);
+        }
+    }
+
+    @Override
     public void loadData(List<DataModel> params, String objectName) {
-        LOG.info("loadData start " + objectName);
+        log.info("loadData start " + objectName);
 
         Collections.sort(params);
 
@@ -115,7 +316,6 @@ public class Driver implements Counter {
         LocalDateTime date = params.get(0).getStartTime() == null ? null : params.get(0).getStartTime().minusHours(1);
 
         Class<?> cl = this.getClass();
-        Map<String, String> methodsMap = this.getMethodsMap();
 
         List<FileData> fileData = Drivers.getFilesForLoad(filePath, date, PATTERN);
 
@@ -127,7 +327,7 @@ public class Driver implements Counter {
                     for (DataModel model: params) {
                         if (model.getStartTime() == null || fData.getDateTime().isAfter(model.getStartTime().minusHours(1))) {
                             try {
-                                String mName = methodsMap.get(model.getParamName());
+                                String mName = METHODS_MAP.get(model.getParamName());
                                 if (Objects.nonNull(mName)) {
                                     Object value = cl.getMethod(mName).invoke(this);
                                     if (value == null) {
@@ -147,25 +347,24 @@ public class Driver implements Counter {
                         }
                     }
                 }
-            } catch (DriverLoadException e) {
-                LOG.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
-                if (e.getMessage().equals("IOException")) {
-                    LOG.warning("loadData end error " + objectName);
-                    return;
-                }
+            } catch (DriverDataLoadException e) {
+                log.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
+            } catch (IOException ex) {
+                log.warning("loadData end error " + objectName);
+                return;
             }
         }
 
-        LOG.info("loadData end " + objectName);
+        log.info("loadData end " + objectName);
     }
 
     /**
      * Метод парсит файл и выгружает из него значения
      * @param path путь к файлу
-     * @throws DriverLoadException если произошла какая то ошибка при разборе
+     * @throws DriverDataLoadException если произошла какая то ошибка при разборе
      */
-    private void readFile(String path) throws DriverLoadException {
-        LOG.info("Driver.readFile start read: " + path + " " + System.currentTimeMillis());
+    private void readFile(String path) throws DriverDataLoadException, IOException {
+        log.info("Driver.readFile start read: " + path + " " + System.currentTimeMillis());
         try (BufferedInputStream inputStream = new BufferedInputStream(Files.newInputStream(Paths.get(path), StandardOpenOption.READ))) {
             boolean head = true;
 
@@ -173,32 +372,39 @@ public class Driver implements Counter {
 
             while(inputStream.available() > 0) {
                 if (head) {
-                    //uint16_t lenA     uint8_t ver
-                    if((readInt(inputStream, 2) != 6) || (readInt(inputStream, 1) != 3)) {
-                        LOG.warning("Driver.readFile Неверный размер заголовка или версия протокола");
-                        throw new DriverLoadException("Driver.readFile Неверный размер заголовка или версия протокола");
-                    }
-                    //uint16_t reqNumA
-                    LOG.info("Driver.readFile Номер запроса: " + readInt(inputStream, 2));
-                    //uint8_t reqRes
-                    if(readInt(inputStream, 1) != 0) {
-                        LOG.warning("Driver.readFile Результат обработки запроса выдал ошибку");
-                        throw new DriverLoadException("Driver.readFile Результат обработки запроса выдал ошибку");
+                    byte[] headData = new byte[14];
+                    if (inputStream.read(headData, 0, headData.length) != -1) {
+                        ByteBuffer headerBuffer = ByteBuffer.wrap(headData).order(ByteOrder.LITTLE_ENDIAN);
+                        // uint16_t lenA     uint8_t ver
+                        if ((headerBuffer.getShort(0) != 6) || (headerBuffer.get(2) != 3)) {
+                            log.warning("Driver.readFile Неверный размер заголовка или версия протокола");
+                            throw new DriverDataLoadException("Driver.readFile Неверный размер заголовка или версия протокола");
+                        }
+                        // uint16_t reqNumA
+//                        log.info("Driver.readFile Номер запроса: " + headerBuffer.getShort(3));
+                        // uint8_t reqRes
+                        if (headerBuffer.get(5) != 0) {
+                            log.warning("Driver.readFile Результат обработки запроса выдал ошибку");
+                            throw new DriverDataLoadException("Driver.readFile Результат обработки запроса выдал ошибку");
+                        }
+
+                        // uint16_t lenD
+//                        log.info("Driver.readFile Размер секции данных: " + headerBuffer.getShort(6));
+                        // uint8_t shema
+//                        log.info("Driver.readFile Номер схемы подключения: " + headerBuffer.get(8));
+                        // uint8_t chCnt
+//                        log.info("Driver.readFile Количество каналов: " + headerBuffer.get(9));
+                        // uint16_t cntAz
+                        if (headerBuffer.getShort(10) != 11) {
+                            log.warning("Driver.readFile Неверное количество архивных записей");
+                            throw new DriverDataLoadException("Driver.readFile Неверное количество архивных записей");
+                        }
+                        // uint16_t crcA
+//                        log.info("Driver.readFile Контрольная сумма: " + headerBuffer.getShort(12));
+                    } else {
+                        throw new DriverDataLoadException("Невозможно прочитать заголовок");
                     }
 
-                    //uint16_t lenD
-                    LOG.info("Driver.readFile Размер секции данных: " + readInt(inputStream, 2));
-                    //uint8_t shema
-                    LOG.info("Driver.readFile Номер схемы подключения: " + readInt(inputStream, 1));
-                    //uint8_t chCnt
-                    LOG.info("Driver.readFile Количество каналов: " + readInt(inputStream, 1));
-                    //uint16_t cntAz
-                    if (readInt(inputStream, 2) != 11) {
-                        LOG.warning("Driver.readFile Неверное количество архивных записей");
-                        throw new DriverLoadException("Driver.readFile Неверное количество архивных записей");
-                    }
-                    //uint16_t crcA
-                    LOG.info("Driver.readFile Контрольная сумма: " + readInt(inputStream, 2));
                     head = false;
                 }
 
@@ -212,14 +418,11 @@ public class Driver implements Counter {
                         break;
                     }
                     default: {
-                        LOG.warning("Driver.readFile Неверный формат архивной записи");
-                        throw new DriverLoadException("Driver.readFile Неверный формат архивной записи");
+                        log.warning("Driver.readFile Неверный формат архивной записи");
+                        throw new DriverDataLoadException("Driver.readFile Неверный формат архивной записи");
                     }
                 }
             }
-        } catch(IOException e) {
-            e.printStackTrace();
-            throw new DriverLoadException("IOException");
         }
     }
 
@@ -229,22 +432,22 @@ public class Driver implements Counter {
      * @param buffer буфер куда читаются данные
      * @param bufferSize размерность буфера
      * @throws IOException если проблемы с потоком данных
-     * @throws DriverLoadException если не прошли проверки
+     * @throws DriverDataLoadException если не прошли проверки
      */
-    private void check(BufferedInputStream inputStream, byte[] buffer, int bufferSize) throws IOException, DriverLoadException {
+    private void check(BufferedInputStream inputStream, byte[] buffer, int bufferSize) throws IOException, DriverDataLoadException {
         if (inputStream.available() < bufferSize) {
-            LOG.warning("Driver.load3 Ошибка в данных");
-            throw new DriverLoadException("Driver.load3 Ошибка в данных");
+            log.warning("Driver.load3 Ошибка в данных");
+            throw new DriverDataLoadException("Driver.load3 Ошибка в данных");
         }
 
         if (inputStream.read(buffer, 0, bufferSize) == -1) {
-            LOG.warning("Driver.load3 Ошибка в чтение данных");
-            throw new DriverLoadException("Driver.load3 Ошибка в чтение данных");
+            log.warning("Driver.load3 Ошибка в чтение данных");
+            throw new DriverDataLoadException("Driver.load3 Ошибка в чтение данных");
         }
 
         if ((buffer[bufferSize - 1] & 0xff) != 10) {
-            LOG.warning("Driver.load3 Ошибочное окончание записи");
-            throw new DriverLoadException("Driver.load3 Ошибочное окончание записи");
+            log.warning("Driver.load3 Ошибочное окончание записи");
+            throw new DriverDataLoadException("Driver.load3 Ошибочное окончание записи");
         }
     }
 
@@ -255,9 +458,9 @@ public class Driver implements Counter {
      *                     для пропуска 10 первых кусков
      * @return номер строки, что бы обновить его в вызываемом методе
      * @throws IOException если ошибки с потоком данных
-     * @throws DriverLoadException если ошибки в проверке
+     * @throws DriverDataLoadException если ошибки в проверке
      */
-    private int load3(BufferedInputStream inputStream, int recordNumber) throws IOException, DriverLoadException {
+    private int load3(BufferedInputStream inputStream, int recordNumber) throws IOException, DriverDataLoadException {
         int  bufferSize = 384;
         byte[] buffer = new byte[bufferSize];
 
@@ -344,8 +547,8 @@ public class Driver implements Counter {
         index += 2;
 
         if (index != (bufferSize - 1)) {
-            LOG.warning("Driver.load3 Ошибка в коде не соответствуют индексы");
-            throw new DriverLoadException("Driver.load3 Ошибка в коде не соответствуют индексы");
+            log.warning("Driver.load3 Ошибка в коде не соответствуют индексы");
+            throw new DriverDataLoadException("Driver.load3 Ошибка в коде не соответствуют индексы");
         }
 
         //Вывод в двоичном виде
@@ -360,9 +563,9 @@ public class Driver implements Counter {
      *                     для пропуска 10 первых кусков
      * @return номер строки, что бы обновить его в вызываемом методе
      * @throws IOException если ошибки с потоком данных
-     * @throws DriverLoadException если ошибки в проверке
+     * @throws DriverDataLoadException если ошибки в проверке
      */
-    private int load4(BufferedInputStream inputStream, int recordNumber) throws IOException, DriverLoadException {
+    private int load4(BufferedInputStream inputStream, int recordNumber) throws IOException, DriverDataLoadException {
         int  bufferSize = 888;
         byte[] buffer = new byte[bufferSize];
 
@@ -468,8 +671,8 @@ public class Driver implements Counter {
         index += 2;
 
         if (index != (bufferSize - 1)) {
-            LOG.warning("Driver.load3 Ошибка в коде не соответствуют индексы");
-            throw new DriverLoadException("Driver.load3 Ошибка в коде не соответствуют индексы");
+            log.warning("Driver.load4 Ошибка в коде не соответствуют индексы");
+            throw new DriverDataLoadException("Driver.load4 Ошибка в коде не соответствуют индексы");
         }
 
         byte[] crcBuffer = new byte[886];
@@ -492,8 +695,10 @@ public class Driver implements Counter {
         try {
             this.readFile(path);
             System.out.println(this);
-        } catch (DriverLoadException e) {
-            LOG.warning(e.getMessage());
+        } catch (DriverDataLoadException e) {
+            log.warning(e.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -548,22 +753,6 @@ public class Driver implements Counter {
         throw new NullPointerException();
     }
 
-    /**
-     * Получение списка методов и их аннотаций в соответствии с конфигурацией
-     * @return методы
-     */
-    private Map<String, String> getMethodsMap() {
-        Map<String, String> result = new HashMap<>();
-        Method[] method = this.getClass().getMethods();
-
-        for(Method md: method){
-            if (md.isAnnotationPresent(MCT20CounterParameter.class)) {
-                result.put(md.getAnnotation(MCT20CounterParameter.class).name().getProperty(), md.getName());
-            }
-        }
-        return result;
-    }
-
     public String getUrl() {
         return url;
     }
@@ -574,42 +763,42 @@ public class Driver implements Counter {
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME0)
-    public Float getWaterVoleme0() {
+    public Float getWaterVolume0() {
         return waterVolume[0];
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME1)
-    public Float getWaterVoleme1() {
+    public Float getWaterVolume1() {
         return waterVolume[1];
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME2)
-    public Float getWaterVoleme2() {
+    public Float getWaterVolume2() {
         return waterVolume[2];
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME3)
-    public Float getWaterVoleme3() {
+    public Float getWaterVolume3() {
         return waterVolume[3];
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME4)
-    public Float getWaterVoleme4() {
+    public Float getWaterVolume4() {
         return waterVolume[4];
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME5)
-    public Float getWaterVoleme5() {
+    public Float getWaterVolume5() {
         return waterVolume[5];
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME6)
-    public Float getWaterVoleme6() {
+    public Float getWaterVolume6() {
         return waterVolume[6];
     }
 
     @MCT20CounterParameter(name = MCT20Config.WATER_VOLUME7)
-    public Float getWaterVoleme7() {
+    public Float getWaterVolume7() {
         return waterVolume[7];
     }
 
@@ -1693,6 +1882,11 @@ public class Driver implements Counter {
         return accumulatedWaterHeatZone[2];
     }
 
+    @MCT20CounterParameter(name = MCT20Config.ELECTRIC)
+    public String getElectric() {
+        return electric;
+    }
+
     @Override
     public String toString() {
         return new StringJoiner(",\n", Driver.class.getSimpleName() + "[\n", "\n]")
@@ -1738,6 +1932,7 @@ public class Driver implements Counter {
                 .add("  accumulatedCurrentStopTimeError2 (Накопленное время останова измерений с прочими отказами (отказ одного из каналов)) = " + Arrays.toString(accumulatedCurrentStopTimeError2))
                 .add("  accumulatedWorkingTimeQ (Накопленное время наработки Q) = " + Arrays.toString(accumulatedWorkingTimeQ))
                 .add("  accumulatedWaterHeatZone (Накопленное количество тепла) = " + Arrays.toString(accumulatedWaterHeatZone))
+                .add("  electric (Состояние электрического ввода) = " + electric)
                 .toString();
     }
 }
