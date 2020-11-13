@@ -7,12 +7,15 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -22,8 +25,6 @@ import java.util.stream.Stream;
 public class Drivers {
 
     private static Logger log = Logger.getLogger(Drivers.class.getName());
-
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HH");
 
     private static int[] table = {
             0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
@@ -120,6 +121,10 @@ public class Drivers {
      */
     public static void clear(Counter counterClass, String url, List<String> pattern) {
         log.info("clear start");
+
+        List<String> patternWrap = new ArrayList<>(pattern);
+        patternWrap.addAll(pattern.stream().map(s -> s + "-er").collect(Collectors.toList()));
+
         for (String el: counterClass.getObjects()) {
             AtomicInteger i = new AtomicInteger();
             String counter = el.substring(el.length() - 4);
@@ -128,41 +133,25 @@ public class Drivers {
             log.info("clear check path: " + filePath);
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(filePath),
                     entry -> {
-                        for (String p: pattern) {
+                        for (String p: patternWrap) {
                             if (entry.getFileName().toString().matches(p)) {
                                 return true;
                             }
                         }
                         return false;
                     })) {
-                List<FileData> fileData = new ArrayList<>();
                 stream.forEach(path -> {
-                    String fileName = path.getFileName().toString();
                     try {
-                        LocalDateTime dateTimeTemp = LocalDateTime.parse(fileName.substring(fileName.length() - 11),
-                                DATE_FORMAT);
-                        fileData.add(new FileData(path, dateTimeTemp));
-                    } catch(DateTimeParseException e) {
-                        log.warning("clear date error " + fileName);
+                        FileTime creationTime = (FileTime) Files.getAttribute(path, "creationTime");
+
+                        if (LocalDateTime.ofInstant(creationTime.toInstant(), ZoneId.systemDefault())
+                                .isBefore(LocalDateTime.now().minusDays(45))) {
+                            Files.delete(path);
+                        }
+                    } catch (IOException e) {
+                        log.warning("error delete file " + path.toString());
                     }
                 });
-
-                if (!fileData.isEmpty()) {
-                    fileData.sort(Collections.reverseOrder());
-
-                    LocalDateTime dateTime = fileData.get(0).getDateTime().minusDays(45);
-
-                    fileData.forEach(file -> {
-                        if (file.getDateTime().isBefore(dateTime)) {
-                            try {
-                                Files.delete(file.getPath());
-                                i.getAndIncrement();
-                            } catch (IOException ex) {
-                                log.warning("clear error remove file " + file.getPath());
-                            }
-                        }
-                    });
-                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -244,5 +233,14 @@ public class Drivers {
         }
 
         return crc;
+    }
+
+    public static void markFileError(Path path) throws IOException {
+        FileTime creationTime = (FileTime) Files.getAttribute(path, "creationTime");
+
+        if (LocalDateTime.ofInstant(creationTime.toInstant(), ZoneId.systemDefault())
+                .isBefore(LocalDateTime.now().minusHours(24))) {
+            Files.move(path, Paths.get(path.toString() + "-er"));
+        }
     }
 }

@@ -314,6 +314,8 @@ public class Driver extends Counter {
     public void loadData(List<DataModel> params, String objectName) {
         log.info("loadData start " + objectName);
 
+        params.removeIf(dataModel -> !METHODS_MAP.containsKey(dataModel.getParamName()));
+
         Collections.sort(params);
 
         String counterNumber = objectName.substring(objectName.length() - 4);
@@ -355,6 +357,11 @@ public class Driver extends Counter {
                 }
             } catch (DriverDataLoadException e) {
                 log.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
+                try {
+                    Drivers.markFileError(fData.getPath());
+                } catch (IOException ex) {
+                    log.warning("error rename file");
+                }
             } catch (IOException ex) {
                 log.warning("loadData end error " + objectName);
                 return;

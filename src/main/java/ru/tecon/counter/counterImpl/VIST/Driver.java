@@ -152,6 +152,11 @@ public class Driver extends Counter {
                 }
             } catch (DriverDataLoadException e) {
                 log.warning(objectName + " " + fData.getPath() + " " + e.getMessage());
+                try {
+                    Drivers.markFileError(fData.getPath());
+                } catch (IOException ex) {
+                    log.warning("error rename file");
+                }
             } catch (IOException ex) {
                 log.warning("loadData end error " + objectName);
                 return;

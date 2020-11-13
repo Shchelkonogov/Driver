@@ -15,7 +15,7 @@ import java.util.*;
 public class AppSingletonBean {
 
     private static final List<String> DRIVERS = Arrays.asList(
-            "ru.tecon.counter.counterImpl.IASDTU.Driver",
+//            "ru.tecon.counter.counterImpl.IASDTU.Driver",
             "ru.tecon.counter.counterImpl.MCT20.Driver",
             "ru.tecon.counter.counterImpl.SA94.Driver",
             "ru.tecon.counter.counterImpl.VIST.Driver",
