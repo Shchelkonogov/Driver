@@ -31,7 +31,8 @@ public class OpcObjectSingletonBean {
     private DatabaseChangeRegistration dcr;
 
     private static final String DELETE_CONFIG_REQUEST = "delete from arm_tecon_commands " +
-            "where kind = 'ForceBrowse' and server_name not in (select * from table(?))";
+            "where kind = 'ForceBrowse' and server_name not in (select * from table(?)) " +
+            "and is_success_execution is null and start_time < (sys_extract_utc(current_timestamp) - 1)";
 
     @Resource(name = "jdbc/DataSource")
     private DataSource ds;
