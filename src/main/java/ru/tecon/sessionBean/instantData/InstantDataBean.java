@@ -131,6 +131,7 @@ public class InstantDataBean {
                 return;
             }
 
+            int parametersCount = parameters.size();
             parameters.removeIf(dataModel -> dataModel.getData().isEmpty());
 
             int count = instantDataBean.putInstantData(rowID, parameters);
@@ -138,7 +139,7 @@ public class InstantDataBean {
 
             if (count != -1) {
                 appBean.updateCommand(1, rowID, objectName,
-                        "Получено " + count + " значений из " + parameters.size() + " слинкованных параетров по объекту " + objectName);
+                        "Получено " + count + " значений из " + parametersCount + " слинкованных параетров по объекту " + objectName);
             } else {
                 appBean.updateCommand(0, rowID, "Error", "Ошибка сервиса загрузки данных");
             }
