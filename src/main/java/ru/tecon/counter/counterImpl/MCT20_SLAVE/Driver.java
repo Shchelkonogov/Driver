@@ -420,6 +420,23 @@ public class Driver extends Counter {
                     index += 192;
                 }
             }
+
+            // Проверка контрольной суммы архивной записи
+            String recordCrc = Integer.toHexString(
+                    Short.toUnsignedInt(
+                            ByteBuffer.wrap(buffer, 910, 2)
+                                    .order(ByteOrder.LITTLE_ENDIAN)
+                                    .getShort()
+                    )
+            );
+
+            String recordCrcCalc = Drivers.computeCrc16Hex(
+                    Arrays.copyOfRange(buffer, 24, buffer.length - 3)
+            );
+
+            if (!recordCrc.equals(recordCrcCalc)) {
+                quality = 0;
+            }
         } catch (DateTimeParseException e) {
             throw new DriverDataLoadException("parse data Exception");
         }
@@ -1559,6 +1576,7 @@ public class Driver extends Counter {
     @Override
     public String toString() {
         return new StringJoiner(",\n", Driver.class.getSimpleName() + "[\n", "\n]")
+                .add("  quality: " + quality)
                 .add("  Время ТС (timeTs): '" + timeTs + "'")
                 .add("  Время УСПД (timeUspd): '" + timeUspd + "'")
                 .add("  totalTime (Общее время работы) = " + totalTime)

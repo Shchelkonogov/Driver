@@ -235,6 +235,15 @@ public class Drivers {
         return crc;
     }
 
+    /**
+     * Подсчет контрольной суммы crc16 modbus
+     * @param data данные для расчета crc
+     * @return расчитанная crc в hex
+     */
+    public static String computeCrc16Hex(byte[] data) {
+        return Integer.toHexString(computeCrc16(data));
+    }
+
     public static void markFileError(Path path) throws IOException {
         FileTime creationTime = (FileTime) Files.getAttribute(path, "creationTime");
 
