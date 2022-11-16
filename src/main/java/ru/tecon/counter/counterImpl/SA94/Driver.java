@@ -283,13 +283,15 @@ public class Driver extends Counter {
             throw new DriverDataLoadException("checkData Ошибка в чтение данных");
         }
 
-//        if ((((buffer[1] & 0x04) >> 2) != 0) || ((buffer[1] >> 3) != 1)) {
+        if (((buffer[18] & 0x01) != 1) || (((buffer[18] & 0x02) >> 1) != 1)) {
+            throw new DriverDataLoadException("Ошибка в valid SA94 archive");
+        }
         if (standardArchive) {
-            if (((buffer[1] & 0x0f) >> 3) != 1) {
+            if (((buffer[18] & 0x0f) >> 3) != 1) {
                 throw new DriverDataLoadException("Ошибка в valid standard SA94 archive");
             }
         } else {
-            if (((buffer[1] & 0x10) >> 4) != 1) {
+            if (((buffer[18] & 0x10) >> 4) != 1) {
                 throw new DriverDataLoadException("Ошибка в valid extended SA94 archive");
             }
         }
