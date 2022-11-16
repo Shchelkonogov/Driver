@@ -416,7 +416,7 @@ public class Driver extends Counter {
                 }
             }
         } catch (DateTimeParseException e) {
-            throw new DriverDataLoadException("parse data Exception");
+            throw new DriverDataLoadException("parse data Exception", e);
         }
     }
 
