@@ -241,6 +241,12 @@ public class Driver extends Counter {
             String parameterItems = new StringBuffer(Long.toBinaryString(Integer.toUnsignedLong(byteBuffer.getInt(26)))).reverse().toString();
 
             int increment = 0;
+            // Если файл с "h", то это ВИСТ гидролинк и у него в архивной записи спереди стоит время (6 байт)
+            // на эти 6 байт надо сделать смещение
+            if (Paths.get(path).getFileName().toString().contains("h")) {
+                increment = 6;
+            }
+
             for (int i = 0; i < parameterItems.length(); i++) {
                 switch (i) {
                     case 0:
