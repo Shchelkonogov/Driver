@@ -248,8 +248,10 @@ public class Driver extends Counter {
 
             p1 = readFloat(Arrays.copyOfRange(buffer, 52, 56));
             p2 = readFloat(Arrays.copyOfRange(buffer, 56, 60));
-            g1i = readFloat(Arrays.copyOfRange(buffer, 68, 72));
-            g2i = readFloat(Arrays.copyOfRange(buffer, 72, 76));
+            v1d = readFloat(Arrays.copyOfRange(buffer, 60, 64));
+            v2d = readFloat(Arrays.copyOfRange(buffer, 64, 78));
+            v1i = readFloat(Arrays.copyOfRange(buffer, 68, 72));
+            v2i = readFloat(Arrays.copyOfRange(buffer, 72, 76));
 
             time0 = readFloat(Arrays.copyOfRange(buffer, 76, 80));
 
@@ -262,8 +264,8 @@ public class Driver extends Counter {
     }
 
     private void readPath(byte[] buffer) {
-        v1i = readFloat(Arrays.copyOfRange(buffer, 8, 12));
-        v2i = readFloat(Arrays.copyOfRange(buffer, 12, 16));
+        g1i = readFloat(Arrays.copyOfRange(buffer, 8, 12));
+        g2i = readFloat(Arrays.copyOfRange(buffer, 12, 16));
         t1 = new BigDecimal(String.valueOf(((buffer[16] & 0xff) << 8) | (buffer[17] & 0xff)))
                 .multiply(new BigDecimal("0.01")).floatValue();
         t2 = new BigDecimal(String.valueOf(((buffer[18] & 0xff) << 8) | (buffer[19] & 0xff)))
