@@ -42,7 +42,7 @@ public class Driver extends Counter {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
-    private static final List<String> PATTERN = Collections.singletonList("\\d{4}b\\d{8}-\\d{2}");
+    private static final List<String> PATTERN = Collections.singletonList("(\\d{4})b(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])-([01][0-9]|2[0-3])");
 
     private static final String SERVER_NAME = "МСТ-20-SLAVE";
 
