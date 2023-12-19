@@ -37,7 +37,7 @@ public class Driver extends Counter {
 
     private static Logger log = Logger.getLogger(Driver.class.getName());
 
-    private static final List<String> PATTERN = Arrays.asList("\\d{4}a\\d{8}-\\d{2}", "ans-\\d{8}-\\d{2}");
+    private static final List<String> PATTERN = Arrays.asList("(\\d{4})a(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])-([01][0-9]|2[0-3])", "ans-\\d{8}-\\d{2}");
 
     private static final Map<String, String> METHODS_MAP = new HashMap<>();
 
