@@ -33,7 +33,7 @@ public class Driver extends Counter {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
-    private static final List<String> PATTERNS = Arrays.asList("\\d{4}v\\d{8}-\\d{2}", "\\d{4}h\\d{8}-\\d{2}");
+    private static final List<String> PATTERNS = Arrays.asList("(\\d{4})v(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])-([01][0-9]|2[0-3])", "(\\d{4})h(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])-([01][0-9]|2[0-3])");
 
     private static Logger log = Logger.getLogger(Driver.class.getName());
 

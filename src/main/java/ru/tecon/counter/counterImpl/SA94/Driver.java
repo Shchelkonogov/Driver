@@ -31,7 +31,7 @@ public class Driver extends Counter {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
-    private static final List<String> PATTERN = Arrays.asList("\\d{4}s\\d{8}-\\d{2}", "\\d{4}e\\d{8}-\\d{2}");
+    private static final List<String> PATTERN = Arrays.asList("(\\d{4})s(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])-([01][0-9]|2[0-3])", "(\\d{4})e(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])-([01][0-9]|2[0-3])");
 
     private static final String SERVER_NAME = "МСТ-20-SA94";
 
